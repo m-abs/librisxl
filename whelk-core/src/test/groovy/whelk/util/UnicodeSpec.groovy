@@ -81,7 +81,8 @@ class UnicodeSpec extends Specification {
         Unicode.asciiFold(unicode) == ascii
 
         where:
-        unicode     | ascii
-        'Désidéria' | 'Desideria'
+        unicode          | ascii
+        'Désidéria'      | 'Desideria'
+        'Антон Павлович' | 'Антон Павлович'
     }
 }
