@@ -41,20 +41,28 @@ class WikidataEntity {
 
     // Wikidata property short ids
     static final String COUNTRY = "P17"
+    static final String DEWEY = "P1036"
     static final String END_TIME = "P582"
     static final String INSTANCE_OF = "P31"
+    static final String MARC_CODE = "P4801"
     static final String PART_OF_PLACE = "P131" // located in the administrative territorial entity
     static final String SUBCLASS_OF = "P279"
 
-    enum Type {
-        PLACE('Q618123'), // Geographical feature
-        PERSON('Q5'), // Human
+    // Wikidata class short ids
+    static final String GEO_FEATURE = "Q618123"
+    static final String HUMAN = "Q5"
+    static final String SWEDISH_MUNI = "Q127448"
+    static final String SWEDISH_COUNTY = "Q200547"
+
+    enum KbvType {
+        PLACE(GEO_FEATURE),
+        PERSON(HUMAN),
         OTHER('')
 
-        String baseClass
+        String wikidataType
 
-        private Type(String baseClass) {
-            this.baseClass = baseClass
+        private KbvType(String wikidataType) {
+            this.wikidataType = wikidataType
         }
     }
 
@@ -81,8 +89,8 @@ class WikidataEntity {
 
     Map convert() {
         switch (type()) {
-            case Type.PLACE: return convertPlace()
-            case Type.PERSON: return convertPerson()
+            case KbvType.PLACE: return convertPlace()
+            case KbvType.PERSON: return convertPerson()
             default: return null
         }
     }
@@ -165,22 +173,73 @@ class WikidataEntity {
         return rs.collect { it.get("place") }
     }
 
-    Type type() {
+    List<String> getDewey() {
+        String queryString = "SELECT ?dewey { wd:${shortId} wdt:${DEWEY} ?dewey }"
+
+        ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
+
+        return rs.collect {it.get("dewey").getLexicalForm() }
+    }
+
+    List<String> getMarcCountryCode() {
+        String queryString = """
+            SELECT (replace(?code, "countries/", "") as ?countryCode) { 
+                wd:${shortId} wdt:${MARC_CODE} ?code .
+                FILTER(strstarts(?code, "countries/"))
+            }
+        """
+
+        ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
+
+        return rs.collect {it.get("countryCode").getLexicalForm() }
+    }
+
+    List<String> getPartOfSweMunicipality() {
+        String queryString = """
+            SELECT ?prefLabel { 
+                wd:${shortId} wdt:${PART_OF_PLACE}+ ?muni .
+                ?muni wdt:${INSTANCE_OF} wd:${SWEDISH_MUNI} ;
+                    skos:prefLabel ?prefLabel .
+                FILTER(lang(?prefLabel) = 'sv')
+            }
+        """
+
+        ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
+
+        return rs.collect {it.get("prefLabel").getLexicalForm() }
+    }
+
+    List<String> getPartOfSweCounty() {
+        String queryString = """
+            SELECT ?prefLabel { 
+                wd:${shortId} wdt:${PART_OF_PLACE}+ ?county .
+                ?county wdt:${INSTANCE_OF} wd:${SWEDISH_COUNTY} ;
+                    skos:prefLabel ?prefLabel .
+                FILTER(lang(?prefLabel) = 'sv')
+            }
+        """
+
+        ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
+
+        return rs.collect {it.get("prefLabel").getLexicalForm() }
+    }
+
+    KbvType type() {
         String queryString = "SELECT ?type { wd:${shortId} wdt:${INSTANCE_OF} ?type }"
 
         ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
         Set wdTypes = rs.collect { it.get("type").toString() } as Set
 
-        return Type.values().find { getSubclasses(it).intersect(wdTypes) } ?: Type.OTHER
+        return KbvType.values().find { getSubclasses(it).intersect(wdTypes) } ?: KbvType.OTHER
     }
 
     @Memoized
-    static Set<String> getSubclasses(Type type) {
-        if (type == Type.OTHER) {
+    static Set<String> getSubclasses(KbvType type) {
+        if (type == KbvType.OTHER) {
             return Collections.EMPTY_SET
         }
 
-        String queryString = "SELECT ?class { ?class wdt:${SUBCLASS_OF}* wd:${type.baseClass} }"
+        String queryString = "SELECT ?class { ?class wdt:${SUBCLASS_OF}* wd:${type.wikidataType} }"
 
         ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
 
