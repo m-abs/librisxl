@@ -1,6 +1,7 @@
 package whelk.external
 
 import groovy.transform.Memoized
+import org.apache.jena.query.QuerySolution
 import org.apache.jena.query.ResultSet
 import org.apache.jena.rdf.model.Model
 import org.apache.jena.rdf.model.ModelFactory
@@ -19,7 +20,7 @@ class Wikidata implements Mapper {
 
         return Optional.ofNullable(wdEntity.convert())
     }
-    
+
     @Override
     boolean mightHandle(String iri) {
         return isWikidata(iri)
@@ -41,12 +42,16 @@ class WikidataEntity {
 
     // Wikidata property short ids
     static final String COUNTRY = "P17"
-    static final String DEWEY = "P1036"
+    static final String DDC = "P1036"
+    static final String EDITION = "P747"
     static final String END_TIME = "P582"
+    static final String FREEBASE = "P646"
+    static final String GEONAMES = "P1566"
     static final String INSTANCE_OF = "P31"
     static final String MARC_CODE = "P4801"
     static final String PART_OF_PLACE = "P131" // located in the administrative territorial entity
     static final String SUBCLASS_OF = "P279"
+    static final String TORA = "P4820"
 
     // Wikidata class short ids
     static final String GEO_FEATURE = "Q618123"
@@ -118,6 +123,23 @@ class WikidataEntity {
         if (!partOf.isEmpty())
             place['isPartOf'] = partOf.collect { ['@id': it.toString()] }
 
+        List ddc = getDdc()
+        if (!ddc.isEmpty())
+            place['closeMatch'] =
+                    ddc.collect { code, edition ->
+                        Map bNode =
+                                [
+                                        '@type': "ClassificationDdc",
+                                        'code' : code.toString()
+                                ]
+                        if (edition)
+                            bNode['edition'] = ['@id': edition.toString()]
+                    }
+
+        List identifiers = getPlaceIdentifiers()
+        if (!identifiers.isEmpty())
+            place['exactMatch'] = identifiers.collect {['@id': it.toString()] }
+
         return place
     }
 
@@ -173,15 +195,41 @@ class WikidataEntity {
         return rs.collect { it.get("place") }
     }
 
-    List<String> getDewey() {
-        String queryString = "SELECT ?dewey { wd:${shortId} wdt:${DEWEY} ?dewey }"
+    List<List<RDFNode>> getDdc() {
+        String queryString = """
+            SELECT ?code ?edition { 
+                wd:${shortId} wdt:${DDC} ?code ;
+                  wdt:${DDC} ?stmt .
+                OPTIONAL { ?stmt pq:${EDITION} ?edition }
+            }
+        """
 
         ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
 
-        return rs.collect {it.get("dewey").getLexicalForm() }
+        return rs.collect { [it.get("code"), it.get("edition")] }
     }
 
-    List<String> getMarcCountryCode() {
+    List<RDFNode> getPlaceIdentifiers() {
+        String queryString = """
+            SELECT ?freebaseId ?geonamesId ?toraId {
+                VALUES ?place { wd:${shortId} }
+        
+                OPTIONAL { ?place wdtn:${FREEBASE} ?freebaseId }
+                OPTIONAL { ?place wdtn:${GEONAMES} ?geonamesId }
+                OPTIONAL { ?place wdt:${TORA} ?toraShortId }               
+                
+                bind(iri(concat("https://data.riksarkivet.se/tora/", ?toraShortId)) as ?toraId)
+            }
+        """
+
+        ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
+
+        QuerySolution singleRowResult = rs.next()
+
+        return rs.getResultVars().findResults { singleRowResult?.get(it) }
+    }
+
+    List<RDFNode> getMarcCountryCode() {
         String queryString = """
             SELECT (replace(?code, "countries/", "") as ?countryCode) { 
                 wd:${shortId} wdt:${MARC_CODE} ?code .
@@ -191,12 +239,12 @@ class WikidataEntity {
 
         ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
 
-        return rs.collect {it.get("countryCode").getLexicalForm() }
+        return rs.collect { it.get("countryCode") }
     }
 
     List<String> getPartOfSweMunicipality() {
         String queryString = """
-            SELECT ?prefLabel { 
+            SELECT DISTINCT ?prefLabel { 
                 wd:${shortId} wdt:${PART_OF_PLACE}+ ?muni .
                 ?muni wdt:${INSTANCE_OF} wd:${SWEDISH_MUNI} ;
                     skos:prefLabel ?prefLabel .
@@ -206,12 +254,12 @@ class WikidataEntity {
 
         ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
 
-        return rs.collect {it.get("prefLabel").getLexicalForm() }
+        return rs.collect { it.get("prefLabel").getLexicalForm() }
     }
 
     List<String> getPartOfSweCounty() {
         String queryString = """
-            SELECT ?prefLabel { 
+            SELECT DISTINCT ?prefLabel { 
                 wd:${shortId} wdt:${PART_OF_PLACE}+ ?county .
                 ?county wdt:${INSTANCE_OF} wd:${SWEDISH_COUNTY} ;
                     skos:prefLabel ?prefLabel .
@@ -221,7 +269,7 @@ class WikidataEntity {
 
         ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
 
-        return rs.collect {it.get("prefLabel").getLexicalForm() }
+        return rs.collect { it.get("prefLabel").getLexicalForm() }
     }
 
     KbvType type() {
