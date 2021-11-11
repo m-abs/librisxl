@@ -1,39 +1,33 @@
+import groovy.transform.Memoized
 import whelk.external.*
-import org.apache.jena.rdf.model.Model
-import org.apache.jena.rdf.model.RDFNode
+import whelk.util.Statistics
 import org.apache.jena.query.QuerySolution
 import org.apache.jena.query.ResultSet
 import org.apache.jena.query.ARQ
 
-PrintWriter geoClassStats = getReportWriter("geo-subclass-stats.tsv")
-
 ARQ.init()
 
 //Map geoClassData = getGeoSubclassMemberCount()
-//
-//addLabels(geoClassData)
+//Map classLabels = getGeoSubclassLabels()
+
+//classLabels.each { uri, label ->
+//    if (geoClassData[uri]) {
+//        geoClassData[uri] += label
+//    }
+//}
+
 //addMembersInSweden(geoClassData)
 
-Map geoClassData = new File(scriptDir, 'geo-subclass-stats.tsv').readLines().collectEntries {
-    List row = it.split('\t')
-    [row[2], ['membersInSweden': row[0] as int, 'members': row[1] as int, 'label': row[3]]]
-}
+//writeTsv(geoClassData, getReportWriter("geo-subclass-stats.tsv"))
 
-Map testData = geoClassData.findAll { uri, data ->
-    data.members > 1000 || data.membersInSweden > 200
-}
+Map geoClassData = readTsv("geo-subclass-stats.tsv")
 
-addAvgPartOfRelations(testData)
+Map partOfStats = getPartOfStats(geoClassData, 100)
 
-testData.each { uri, data ->
-    geoClassStats.println("${uri}\t${data.label}\t${data.members}\t${data.membersInSweden}\t${data.avgPartOfRelations}")
-}
-
-//addPartOfPathData(testData)
-
-//printExamples()
+writeTsv(partOfStats, getReportWriter("partOf-stats.tsv"))
 
 Map getGeoSubclassMemberCount() {
+    println("Start getGeoSubclassMemberCount()")
     String queryString = """
         SELECT ?class (count(distinct ?member) as ?membersCount) {
             ?class wdt:${WikidataEntity.SUBCLASS_OF}* wd:Q618123.
@@ -47,7 +41,8 @@ Map getGeoSubclassMemberCount() {
     return rs.collectEntries { [it.get('class').toString(), ['members': it.get('membersCount').getInt()]] }
 }
 
-void addLabels(Map classData) {
+Map getGeoSubclassLabels() {
+    println("Start getGeoSubclassLabels()")
     String queryString = """
         SELECT ?class ?classLabel {
             ?class wdt:${WikidataEntity.SUBCLASS_OF}* wd:Q618123.
@@ -57,16 +52,12 @@ void addLabels(Map classData) {
 
     ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 
-    while (rs.hasNext()) {
-        QuerySolution row = rs.next()
-        String uri = row.get('class').toString()
-        String label = row.get('classLabel').getLexicalForm
-        if (classData[uri])
-            classData[uri]['label'] = label
-    }
+    return rs.collectEntries { [it.get('class').toString(), ['label': it.get('classLabel').getLexicalForm()]] }
 }
 
 void addMembersInSweden(Map classData) {
+    println("Start addMembersInSweden()")
+    int counter = 0
     classData.each { uri, data ->
         String queryString = """
             SELECT (count(distinct ?member) as ?membersCount) {
@@ -77,6 +68,10 @@ void addMembersInSweden(Map classData) {
 
         ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 
+        counter += 1
+        println(counter)
+        println(data.label)
+
         if (!rs.hasNext())
             return
 
@@ -86,125 +81,213 @@ void addMembersInSweden(Map classData) {
     }
 }
 
-void addAvgPartOfRelations(Map classData) {
-    classData.each { uri, data ->
-        String queryString = """
-            SELECT ?member (count(?place) as ?partOfCount) {
-                ?member wdt:${WikidataEntity.INSTANCE_OF} <${uri}> ;
-                        p:${WikidataEntity.PART_OF_PLACE} ?partOfStmt .
-                ?partOfStmt ps:${WikidataEntity.PART_OF_PLACE} ?place .
-                FILTER NOT EXISTS { ?partOfStmt pq:${WikidataEntity.END_TIME} ?endTime }
+Map getPartOfStats(Map classData, int sampleSize) {
+    println("addPartOfPathData()")
+
+    Map testData = classData.findAll { uri, data ->
+        data.members > 5000 || data.membersInSweden > 200
+    }
+
+    testData.each { uri, data ->
+        println(data.label)
+
+        Statistics stats = new Statistics(1)
+
+        String ctryRelations = "Number of country relations"
+        String partOfRelations = "Number of partOfPlace relations"
+        String pathExists = "Path exists between place and country"
+        String differentPaths = "Number of different paths to country"
+        String intermediateClasses = "Intermediate classes in path to country"
+        String stepsToCountry = "Number of steps to country"
+        String minStepsToCountry = "Number of steps in shortest path to country"
+        String maxStepsToCountry = "Number of steps in longest path to country"
+        String reachableCountries = "Number of reachable countries"
+
+        List<String> classMembers = getClassMembers(uri).take(sampleSize)
+
+        classMembers.each { place ->
+            List country = getCountry(place)
+            List partOfPlace = getPartOfPlace(place)
+
+            incrementStats(ctryRelations, country.size(), place)
+            incrementStats(partOfRelations, partOfPlace.size(), place)
+
+            stats.increment(ctryRelations, country.size(), place)
+            stats.increment(partOfRelations, partOfPlace.size(), place)
+
+            if (country.isEmpty() || partOfPlace.isEmpty()) {
+                incrementStats(pathExists, "N/A", place)
+                stats.increment(pathExists, "N/A", place)
+                return
             }
-            GROUP BY ?member
+
+            int countriesWithPath = 0
+
+            country.each {
+                List paths = pathsToCountry(place, it)
+
+                int pathsCount = paths.size()
+
+                incrementStats(differentPaths, pathsCount, place)
+                stats.increment(differentPaths, pathsCount, place)
+
+                if (pathsCount > 0) {
+                    countriesWithPath += 1
+
+                    int minSteps = 1000
+                    int maxSteps = 0
+
+                    paths.each { p ->
+                        int stepsInPath = p.size() - 1
+
+                        minSteps = stepsInPath < minSteps ? stepsInPath : minSteps
+                        maxSteps = stepsInPath > maxSteps ? stepsInPath : maxSteps
+
+                        if (stepsInPath > 1) {
+                            List intermediateTypes = p[1..<-1].collect { entity ->
+                                getInstanceOf(entity).findResults { classData[it] ? classData[it].label : null }
+                            }
+                            incrementStats(intermediateClasses, intermediateTypes, place)
+                            stats.increment(intermediateClasses, intermediateTypes, place)
+                        }
+
+                        incrementStats(stepsToCountry, stepsInPath, place)
+                        stats.increment(stepsToCountry, stepsInPath, place)
+                    }
+
+                    incrementStats(minStepsToCountry, minSteps, place)
+                    incrementStats(maxStepsToCountry, maxSteps, place)
+
+                    stats.increment(minStepsToCountry, minSteps, place)
+                    stats.increment(maxStepsToCountry, maxSteps, place)
+                }
+            }
+
+            incrementStats(pathExists, countriesWithPath > 0, place)
+            incrementStats(reachableCountries, countriesWithPath, place)
+
+            stats.increment(pathExists, countriesWithPath > 0, place)
+            stats.increment(reachableCountries, countriesWithPath, place)
+        }
+
+        new PrintWriter(getReportWriter(data.label.split().join('-') + '.txt')).withCloseable {
+            stats.print(sampleSize / 20, it)
+        }
+
+        data['checkedMembers'] = classMembers.size()
+        data['havePathToCountry'] = stats.c[pathExists][true]
+        data['avgCountryRelations'] = keyTimesValueSum(stats.c[ctryRelations]) / valueSum(stats.c[ctryRelations])
+        data['avgPartOfRelations'] = keyTimesValueSum(stats.c[partOfRelations]) / valueSum(stats.c[partOfRelations])
+        data['avgDifferentPathsToCountry'] = keyTimesValueSum(stats.c[differentPaths]) / keyTimesValueSum(stats.c[reachableCountries])
+        data['avgStepsToCountry'] = keyTimesValueSum(stats.c[stepsToCountry]) / keyTimesValueSum(stats.c[differentPaths])
+        data['avgMinStepsToCountry'] = keyTimesValueSum(stats.c[minStepsToCountry]) / keyTimesValueSum(stats.c[reachableCountries])
+        data['avgMaxStepsToCountry'] = keyTimesValueSum(stats.c[maxStepsToCountry]) / keyTimesValueSum(stats.c[reachableCountries])
+        println(data)
+    }
+
+    return testData
+}
+
+List pathsToCountry(String placeUri, String countryUri) {
+    List allPaths = []
+
+    Map path =
+            [
+                    'visited': [placeUri] as Set,
+                    'order'  : [placeUri]
+            ]
+
+    Queue q = [path] as Queue
+
+    while (!q.isEmpty()) {
+        path = q.poll()
+        String lastInPath = path.order.last()
+
+        if (lastInPath == countryUri) {
+            allPaths << path.order
+            continue
+        }
+
+        getPartOfPlace(lastInPath).each { uri ->
+            if (path.visited.contains(uri))
+                return
+            Map newPath =
+                    [
+                            'visited': path.visited + uri,
+                            'order'  : path.order + uri
+                    ]
+            q << newPath
+        }
+    }
+
+    return allPaths
+}
+
+List<String> getClassMembers(String uri) {
+    String queryString = "SELECT ?member { ?member wdt:${WikidataEntity.INSTANCE_OF} <${uri}> }"
+
+    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
+
+    return rs.collect { it.get('member').toString() }
+}
+
+@Memoized
+List<String> getPartOfPlace(String uri) {
+    String queryString = """
+            SELECT ?place { 
+                <${uri}> p:${WikidataEntity.PART_OF_PLACE} ?stmt .
+                ?stmt ps:${WikidataEntity.PART_OF_PLACE} ?place .
+                FILTER NOT EXISTS { ?stmt pq:${WikidataEntity.END_TIME} ?endTime }
+            }
         """
 
-        ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
+    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 
-        int total = 0
-        rs.each {
-            int count = it.get('partOfCount').getInt()
-            incrementStats("Total", "partOf: ${count}")
-            incrementStats(data.label, "partOf: ${count}", it.get('member').toString())
-            total += count
+    return rs.collect { it.get("place").toString() }
+}
+
+@Memoized
+List<String> getCountry(String uri) {
+    String queryString = "SELECT ?country { <${uri}> wdt:${WikidataEntity.COUNTRY} ?country }"
+
+    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
+
+    return rs.collect { it.get("country").toString() }
+}
+
+@Memoized
+List<String> getInstanceOf(String uri) {
+    String queryString = "SELECT ?class { <${uri}> wdt:${WikidataEntity.INSTANCE_OF} ?class }"
+
+    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
+
+    return rs.collect { it.get("class").toString() }
+}
+
+void writeTsv(Map classData, PrintWriter tsv) {
+    boolean first = true
+    classData.each { uri, data ->
+        if (first) {
+            tsv.println("URI\t${data.collect { it.key }.join('\t')}")
+            first = false
         }
-
-        data['avgPartOfRelations'] = total / data.members
-
-        (rs.size()..<data.members).each {
-            incrementStats("Total", "partOf: 0")
-            incrementStats(data.label, "partOf: 0")
-        }
-
-        println(data.label)
-        println(total / data.members)
+        tsv.println("${uri}\t${data.collect { it.value }.join('\t')}")
     }
 }
 
-//void addPartOfPathData(Map classData) {
-//    classData.each { uri, data ->
-//        int minStepsTotal = 0
-//        int maxStepsTotal = 0
-//        int stepsTotal = 0
-//        int pathsTotal = 0
-//        int pathExistsForCountry = 0
-//        int pathExistsForEntity = 0
-//
-//        List<String> classMembers = getClassMembers(uri)
-//        classMembers.each {
-//            WikidataEntity placeEntity = new WikidataEntity(uri)
-//
-//            List country = placeEntity.getCountry()
-//
-//            incrementStats("Total", "country: ${country.size()}", it)
-//            incrementStats(data.label, "country: ${country.size()}", it)
-//
-//            boolean pathExists
-//            country.each {
-//                List paths = pathsToCountry(placeEntity, it.toString())
-//                int pathsCount = paths.size()
-//                if (pathsCount > 0) {
-//                    pathExists = true
-//                    pathExistsForCountry += 1
-//
-//                    pathsTotal += pathsCount
-//                    incrementStats("Total", "Different paths to country: ${pathsCount}", placeEntity.entityIri)
-//                    incrementStats(data.label, "Different paths to country: ${pathsCount}", placeEntity.entityIri)
-//
-//                    int minSteps = paths.min { it.size() } - 1
-//                    minStepsTotal += minSteps
-//                    incrementStats("Total", "Min steps to country: ${minSteps}", placeEntity.entityIri)
-//                    incrementStats(data.label, "Min steps to country: ${minSteps}", placeEntity.entityIri)
-//
-//                    int maxSteps = paths.max { it.size() } - 1
-//                    maxStepsTotal += maxSteps
-//                    incrementStats("Total", "Max steps to country: ${maxSteps}", placeEntity.entityIri)
-//                    incrementStats(data.label, "Max steps to country: ${maxSteps}", placeEntity.entityIri)
-//
-//                    stepsTotal += paths.flatten().size() - pathsCount
-//                }
-//            }
-//            if (pathExists)
-//                pathExistsForEntity += 1
-//        }
-//
-//        data['pathExists'] = pathExistsForEntity
-//        data['avgDifferentPaths'] = pathsTotal / pathExistsForCountry
-//        data['avgSteps'] = stepsTotal / pathsTotal
-//        data['avgMinSteps'] = minStepsTotal / pathExistsForCountry
-//        data['avgMaxSteps'] = maxStepsTotal / pathExistsForCountry
-//    }
-//}
-//
-//List<String> getClassMembers(String uri) {
-//    String queryString = "SELECT ?member { ?member wdt:${WikidataEntity.INSTANCE_OF} <${uri}>"
-//
-//    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
-//
-//    return rs.collect { it.get('member').toString() }
-//}
-//
-//List pathsToCountry(WikidataEntity place, String countryUri) {
-//    List allPaths = []
-//
-//    List path = [place]
-//    Queue q = [path] as Queue
-//
-//    while (!q.isEmpty()) {
-//        path = q.poll()
-//        WikidataEntity lastInPath = path.last()
-//
-//        if (lastInPath.entityIri == countryUri) {
-//            allPaths << path
-//            continue
-//        }
-//
-//        lastInPath.getPartOfPlace().each {
-//            String uri = it.toString()
-//            if (path.any { it.entityIri == uri })
-//                return
-//            q << path + new WikidataEntity(uri)
-//        }
-//    }
-//
-//    return allPaths
-//}
+Map readTsv(String fileName) {
+    List rows = new File(scriptDir, fileName).collect { it.split('\t') }
+    List keys = rows[0]
+    return rows.drop(1).collectEntries { row ->
+        [row[0], (1..<row.size()).collectEntries { i -> [keys[i], row[i].isNumber() ? row[i] as int : row[i]] }]
+    }
+}
+
+int keyTimesValueSum(Map m) {
+    return m.collect { it.key * it.value }.sum()
+}
+
+int valueSum(Map m) {
+    return m.values().sum()
+}
+

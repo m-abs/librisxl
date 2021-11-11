@@ -272,6 +272,14 @@ class WikidataEntity {
         return rs.collect { it.get("prefLabel").getLexicalForm() }
     }
 
+    List<String> getInstanceOf() {
+        String queryString = "SELECT ?class { wd:${shortId} wdt:${INSTANCE_OF} ?class }"
+
+        ResultSet rs = QueryRunner.localSelectResult(queryString, graph)
+
+        return rs.collect { it.get("class") }
+    }
+
     KbvType type() {
         String queryString = "SELECT ?type { wd:${shortId} wdt:${INSTANCE_OF} ?type }"
 
