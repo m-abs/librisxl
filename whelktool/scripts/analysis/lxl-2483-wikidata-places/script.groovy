@@ -171,7 +171,7 @@ Map getPartOfStats(Map classData, int sampleSize) {
         }
 
         new PrintWriter(getReportWriter(data.label.split().join('-') + '.txt')).withCloseable {
-            stats.print(sampleSize / 20, it)
+            stats.print((sampleSize / 20).intValue(), it)
         }
 
         data['checkedMembers'] = classMembers.size()
