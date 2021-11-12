@@ -134,6 +134,8 @@ class WikidataEntity {
                                 ]
                         if (edition)
                             bNode['edition'] = ['@id': edition.toString()]
+
+                        return bNode
                     }
 
         List identifiers = getPlaceIdentifiers()
