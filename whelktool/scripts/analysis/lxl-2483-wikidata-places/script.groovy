@@ -147,7 +147,7 @@ Map getPartOfStats(Map classData, int sampleSize) {
                             List intermediateTypes = p[1..<-1].collect { entity ->
                                 getInstanceOf(entity).findResults { classData[it] ? classData[it].label : null }
                             }
-                            incrementStats(intermediateClasses, intermediateTypes, place)
+//                            incrementStats(intermediateClasses, intermediateTypes, place)
                             stats.increment(intermediateClasses, intermediateTypes, place)
                         }
 
@@ -246,7 +246,7 @@ List<String> getPartOfPlace(String uri) {
     return rs.collect { it.get("place").toString() }
 }
 
-@Memoized
+
 List<String> getCountry(String uri) {
     String queryString = "SELECT ?country { <${uri}> wdt:${WikidataEntity.COUNTRY} ?country }"
 
