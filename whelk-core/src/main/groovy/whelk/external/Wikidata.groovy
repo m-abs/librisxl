@@ -183,7 +183,7 @@ class WikidataEntity {
 
     List<RDFNode> getPartOfPlace() {
         String queryString = """
-            SELECT ?place { 
+            SELECT DISTINCT ?place { 
                 wd:${shortId} p:${PART_OF_PLACE} ?stmt .
                 ?stmt ps:${PART_OF_PLACE} ?place .
                 FILTER NOT EXISTS { ?stmt pq:${END_TIME} ?endTime }
