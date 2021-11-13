@@ -97,7 +97,7 @@ Map getPartOfStats(Map classData, int sampleSize) {
         String partOfRelations = "Number of partOfPlace relations"
         String pathExists = "Path exists between place and country"
         String differentPaths = "Number of different paths to country"
-        String intermediateClasses = "Intermediate classes in path to country"
+        String intermediateClasses = "Intermediate types in path to country (steps from)"
         String stepsToCountry = "Number of steps to country"
         String minStepsToCountry = "Number of steps in shortest path to country"
         String maxStepsToCountry = "Number of steps in longest path to country"
@@ -144,11 +144,15 @@ Map getPartOfStats(Map classData, int sampleSize) {
                         maxSteps = stepsInPath > maxSteps ? stepsInPath : maxSteps
 
                         if (stepsInPath > 1) {
-                            List intermediateTypes = p[1..<-1].collect { entity ->
-                                getInstanceOf(entity).findResults { classData[it] ? classData[it].label : null }
+                            List intermediateTypes = p[-2..1].eachWithIndex { entity, stepsFromCountry ->
+                                List type = getInstanceOf(entity)
+                                type.each {
+                                    if (classData[it]) {
+//                                        incrementStats(intermediateClasses, intermediateTypes, place)
+                                        stats.increment(intermediateClasses, "${classData[it].label}(${stepsFromCountry + 1})", place)
+                                    }
+                                }
                             }
-//                            incrementStats(intermediateClasses, intermediateTypes, place)
-                            stats.increment(intermediateClasses, intermediateTypes, place)
                         }
 
                         incrementStats(stepsToCountry, stepsInPath, place)
