@@ -103,7 +103,7 @@ Map getPartOfStats(Map classData, int sampleSize) {
         String maxStepsToCountry = "Number of steps in longest path to country"
         String reachableCountries = "Number of reachable countries"
 
-        List<String> classMembers = getClassMembers(uri).take(sampleSize)
+        List<String> classMembers = getClassMembers(uri).shuffled().take(sampleSize)
 
         classMembers.each { place ->
             List country = getCountry(place)
