@@ -112,7 +112,7 @@ class WikidataEntity {
             place['prefLabelByLang'] = prefLabel.collectEntries { [it.getLanguage(), it.getLexicalForm()] }
 
         List description = getDescription().findAll { it.getLanguage() in ElasticSearch.LANGUAGES_TO_INDEX }
-        if (!prefLabel.isEmpty())
+        if (!description.isEmpty())
             place['descriptionByLang'] = description.collectEntries { [it.getLanguage(), it.getLexicalForm()] }
 
         List country = getCountry().findAll { it.toString() != entityIri }
