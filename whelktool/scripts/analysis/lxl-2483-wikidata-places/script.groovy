@@ -184,9 +184,11 @@ Map getPartOfStats(Map classData, int sampleSize) {
         }
 
         data['checkedMembers'] = classMembers.size()
-        data['havePathToCountry'] = stats.c[pathExists][true]
         data['avgCountryRelations'] = (keyTimesValueSum(stats.c[ctryRelations]) / valueSum(stats.c[ctryRelations])).round(2)
         data['avgPartOfRelations'] = (keyTimesValueSum(stats.c[partOfRelations]) / valueSum(stats.c[partOfRelations])).round(2)
+        if (!stats.c[pathExists][true])
+            return
+        data['havePathToCountry'] = stats.c[pathExists][true]
         data['avgDifferentPathsToCountry'] = (keyTimesValueSum(stats.c[differentPaths]) / keyTimesValueSum(stats.c[reachableCountries])).round(2)
         data['avgStepsToCountry'] = (keyTimesValueSum(stats.c[stepsToCountry]) / keyTimesValueSum(stats.c[differentPaths])).round(2)
         data['avgMinStepsToCountry'] = (keyTimesValueSum(stats.c[minStepsToCountry]) / keyTimesValueSum(stats.c[reachableCountries])).round(2)
