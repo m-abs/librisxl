@@ -23,7 +23,7 @@ def overallExamples(List classData, int numClasses, int numExamplesPerClass) {
         mappings.println(classInfo)
         mappings.println("-"*classInfo.size())
 
-        List examples = getClassMembers(it.URI).take(numExamplesPerClass)
+        List examples = getClassMembers(it.URI).shuffled().take(numExamplesPerClass)
 
         printExamples(examples, mappings)
         mappings.println()
@@ -43,7 +43,7 @@ def swedishExamples(List classData, int numClasses, int numExamplesPerClass) {
         mappings.println(classInfo)
         mappings.println("-"*classInfo.size())
 
-        List examples = getClassMembersInSweden(it.URI).take(numExamplesPerClass)
+        List examples = getClassMembersInSweden(it.URI).shuffled().take(numExamplesPerClass)
 
         printExamples(examples, mappings)
     }
