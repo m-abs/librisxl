@@ -84,8 +84,12 @@ void addMembersInSweden(Map classData) {
 Map getPartOfStats(Map classData, int sampleSize) {
     println("addPartOfPathData()")
 
+//    Map testData = classData.findAll { uri, data ->
+//        data.members > 5000 || data.membersInSweden > 200
+//    }
+
     Map testData = classData.findAll { uri, data ->
-        data.members > 5000 || data.membersInSweden > 200
+        data.membersInSweden > 200
     }
 
     testData.each { uri, data ->
@@ -103,7 +107,8 @@ Map getPartOfStats(Map classData, int sampleSize) {
         String maxStepsToCountry = "Number of steps in longest path to country"
         String reachableCountries = "Number of reachable countries"
 
-        List<String> classMembers = getClassMembers(uri).shuffled().take(sampleSize)
+//        List<String> classMembers = getClassMembers(uri).shuffled().take(sampleSize)
+        List<String> classMembers = getClassMembersInSweden(uri).shuffled().take(sampleSize)
 
         classMembers.each { place ->
             List country = getCountry(place)
@@ -148,8 +153,8 @@ Map getPartOfStats(Map classData, int sampleSize) {
                                 List type = getInstanceOf(entity)
                                 type.each {
                                     if (classData[it]) {
-//                                        incrementStats(intermediateClasses, intermediateTypes, place)
-                                        stats.increment(intermediateClasses, "${classData[it].label}(${stepsFromCountry + 1})", place)
+                                        incrementStats(intermediateClasses, "${classData[it].label} (${stepsFromCountry + 1})", place)
+                                        stats.increment(intermediateClasses, "${classData[it].label} (${stepsFromCountry + 1})", place)
                                     }
                                 }
                             }
@@ -229,6 +234,19 @@ List pathsToCountry(String placeUri, String countryUri) {
 
 List<String> getClassMembers(String uri) {
     String queryString = "SELECT ?member { ?member wdt:${WikidataEntity.INSTANCE_OF} <${uri}> }"
+
+    ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
+
+    return rs.collect { it.get('member').toString() }
+}
+
+List<String> getClassMembersInSweden(String uri) {
+    String queryString = """
+        SELECT ?member { 
+            ?member wdt:${WikidataEntity.INSTANCE_OF} <${uri}> ;
+                wdt:${WikidataEntity.COUNTRY} wd:Q34
+        }
+    """
 
     ResultSet rs = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 
