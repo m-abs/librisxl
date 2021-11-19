@@ -22,7 +22,7 @@ writeTsv(geoClassData, getReportWriter("GEO-SUBCLASS-STATS.tsv"))
 
 //Map geoClassData = readTsv("GEO-SUBCLASS-STATS.tsv")
 
-Map partOfStats = getPartOfStats(geoClassData, 2000)
+Map partOfStats = getPartOfStats(geoClassData, 5000)
 
 writeTsv(partOfStats, getReportWriter("PART-OF-STATS.tsv"))
 
@@ -84,13 +84,13 @@ void addMembersInSweden(Map classData) {
 Map getPartOfStats(Map classData, int sampleSize) {
     println("addPartOfPathData()")
 
-//    Map testData = classData.findAll { uri, data ->
-//        data.members > 5000 || data.membersInSweden > 200
-//    }
-
     Map testData = classData.findAll { uri, data ->
-        data.membersInSweden > 200
+        data.members > 9000
     }
+
+//    Map testData = classData.findAll { uri, data ->
+//        data.membersInSweden > 200
+//    }
 
     testData.each { uri, data ->
         println(data.label)
@@ -107,8 +107,8 @@ Map getPartOfStats(Map classData, int sampleSize) {
         String maxStepsToCountry = "Number of steps in longest path to country"
         String reachableCountries = "Number of reachable countries"
 
-//        List<String> classMembers = getClassMembers(uri).shuffled().take(sampleSize)
-        List<String> classMembers = getClassMembersInSweden(uri).shuffled().take(sampleSize)
+        List<String> classMembers = getClassMembers(uri).shuffled().take(sampleSize)
+//        List<String> classMembers = getClassMembersInSweden(uri).shuffled().take(sampleSize)
 
         classMembers.each { place ->
             List country = getCountry(place)
@@ -153,7 +153,7 @@ Map getPartOfStats(Map classData, int sampleSize) {
                                 List type = getInstanceOf(entity)
                                 type.each {
                                     if (classData[it]) {
-                                        incrementStats(intermediateClasses, "${classData[it].label} (${stepsFromCountry + 1})", place)
+//                                        incrementStats(intermediateClasses, "${classData[it].label} (${stepsFromCountry + 1})", place)
                                         stats.increment(intermediateClasses, "${classData[it].label} (${stepsFromCountry + 1})", place)
                                     }
                                 }
