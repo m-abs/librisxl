@@ -24,7 +24,7 @@ wdClasses = [:]
 
 [COMPLEX, TOPIC, PLACE].each {category ->
     def labels = (category == COMPLEX) ? getComplexGeoLabels() : (category == TOPIC) ? getGeoTopicLabels() : getPlaceLabels()
-    labels.take(10).each {l ->
+    labels.each {l ->
         try {
             matchAndReport(l, category)
         } catch (Exception e) {
