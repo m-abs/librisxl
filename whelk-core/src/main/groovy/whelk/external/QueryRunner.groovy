@@ -14,10 +14,15 @@ class QueryRunner {
     static final Map nsPrefixes =
             [
                     "bd"      : "http://www.bigdata.com/rdf#",
+                    "bf"      : "http://id.loc.gov/ontologies/bibframe/",
+                    "gn"      : "https://www.geonames.org/ontology#",
                     "kbv"     : "https://id.kb.se/vocab/",
+                    "madsrdf" : "http://www.loc.gov/mads/rdf/v1#",
+                    "owl"     : "http://www.w3.org/2002/07/owl#",
                     "p"       : "http://www.wikidata.org/prop/",
                     "pq"      : "http://www.wikidata.org/prop/qualifier/",
                     "ps"      : "http://www.wikidata.org/prop/statement/",
+                    "rdf"     : "http://www.w3.org/1999/02/22-rdf-syntax-ns#",
                     "rdfs"    : "http://www.w3.org/2000/01/rdf-schema#",
                     "sdo"     : "http://schema.org/",
                     "skos"    : "http://www.w3.org/2004/02/skos/core#",
@@ -37,12 +42,19 @@ class QueryRunner {
         return rs
     }
 
-    static ResultSet remoteSelectResult(String queryString, String sparqlEndpoint) {
+    static ResultSet remoteSelectResult(String queryString, String sparqlEndpoint = null) {
         Query q = prepareQuery(queryString)
         QueryExecution qExec = remoteQueryExec(q, sparqlEndpoint)
         ResultSet rs = selectQuery(qExec)
 
         return rs
+    }
+
+    static boolean remoteAsk(String queryString, String sparqlEndpoint) {
+        Query q = prepareQuery(queryString)
+        QueryExecution qExec = remoteQueryExec(q, sparqlEndpoint)
+
+        return askQuery(qExec)
     }
 
     static ResultSet selectQuery(QueryExecution qe) {
@@ -81,7 +93,10 @@ class QueryRunner {
     }
 
     static QueryExecution remoteQueryExec(Query query, String sparqlEndpoint) {
-        return QueryExecutionFactory.sparqlService(sparqlEndpoint, query)
+        if (sparqlEndpoint != null)
+            return QueryExecutionFactory.sparqlService(sparqlEndpoint, query)
+
+        return QueryExecutionFactory.create(query)
     }
 
     static QueryExecution localQueryExec(Query query, Model graph) {
