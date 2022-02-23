@@ -23,6 +23,7 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
         getTypes(wdId).each {
             wdTypeStats.increment("No GeoNames Mapping", "${it[1]} (${getShortId(it[0])})", wdId)
         }
+        return
     }
 
     def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
