@@ -10,7 +10,7 @@ def report = getReportWriter('classified.txt')
 ARQ.init()
 
 def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'A', 'P', 'U']
-def genericClasses = ['A.ADMD', 'P.PPL', 'L.RGN']
+def genericCodes = ['A.ADMD', 'P.PPL', 'L.RGN']
 
 new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     def (count, label, wdId) = line.split('\t')
@@ -27,10 +27,10 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     }
 
     def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
-    def featureClass = { prio.find { fc -> mappings.any { it.startsWith(fc) && !(it in genericClasses) } } }
-    def genericCode = { genericClasses.find { it in mappings } }
+    def featureClass = { prio.find { fc -> mappings.any { it.startsWith(fc) && !(it in genericCodes) } } }
+    def generic = { genericCodes.find { it in mappings }[0] }
 
-    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'UA' : (featureClass() ?: genericCode()))
+    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'UA' : (featureClass() ?: generic()))
 
     incrementStats("Distribution", feature, "$label • $wdId")
     getWdClassMappingToGnFeature(wdId, feature).each {
