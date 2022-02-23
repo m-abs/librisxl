@@ -375,7 +375,14 @@ class WikidataEntity {
             return Collections.EMPTY_SET
         }
 
-        String queryString = "SELECT ?class { ?class wdt:${SUBCLASS_OF}* wd:${type.wikidataType} }"
+        String queryString = """
+            SELECT ?class (count(?instance) as ?count) { 
+                ?instance wdt:${INSTANCE_OF} ?class . 
+                ?class wdt:${SUBCLASS_OF}* wd:${type.wikidataType} 
+            }
+            GROUP BY ?class
+            ORDER BY DESC(?count)
+        """
 
         ResultSet rs = QueryRunner.remoteSelectResult(queryString, WIKIDATA_ENDPOINT)
 
