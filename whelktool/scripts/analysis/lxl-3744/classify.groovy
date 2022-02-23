@@ -10,7 +10,7 @@ def report = getReportWriter('classified.txt')
 ARQ.init()
 
 def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'A', 'P', 'U']
-def genericClasses = ['A.ADM', 'P.PPL', 'L.RGN']
+def genericClasses = ['A.ADMD', 'P.PPL', 'L.RGN']
 
 new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     def (count, label, wdId) = line.split('\t')
