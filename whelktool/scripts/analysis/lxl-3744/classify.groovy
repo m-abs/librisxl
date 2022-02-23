@@ -14,7 +14,7 @@ def prioA = ['A.ADM5', 'A.ADM4', 'A.ADM3', 'A.ADM2', 'A.ADM1', 'A.ADMD']
 
 def counter = 0
 
-new File(scriptDir, 'geo-topics.txt').readLines().take(100).each { line ->
+new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     counter += 1
     println(counter)
 
