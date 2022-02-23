@@ -9,7 +9,8 @@ def report = getReportWriter('classified.txt')
 
 ARQ.init()
 
-def prio = ['P', 'T', 'H', 'S', 'R', 'V', 'U', 'A', 'L']
+def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'A', 'P', 'U']
+def genericClasses = ['A.ADM', 'P.PPL', 'L.RGN']
 
 new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     def (count, label, wdId) = line.split('\t')
@@ -24,29 +25,29 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
         }
     }
 
-    def featureClass = prio.find { fc -> mappings.any { it.startsWith(fc) } }
-    if (featureClass) {
-        def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
-        def feature = (admDivisions.size() == 1) ? admDivisions[0] : featureClass
+    def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
+    def featureClass = { prio.find { fc -> mappings.any { it.startsWith(fc) && !(it in genericClasses) } } }
+    def genericCode = { genericClasses.find { it in mappings } }
 
-        incrementStats("Distribution", feature, "$label • $wdId")
-        getWdClassMappingToGnFeature(wdId, feature).each {
-            wdTypeStats.increment(feature, "${it[1]} (${getShortId(it[0])})", wdId)
-        }
+    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'UA' : (featureClass() ?: genericCode()))
 
-        def row = "$count\t$label\t$wdId\t$feature\t"
-
-        def historical = mappings.find { it[-1] == 'H' }
-        if (historical) {
-            getWdClassMappingToGnFeature(wdId, historical).each {
-                wdTypeStats.increment('Historical', "${it[1]} (${getShortId(it[0])})", wdId)
-            }
-            row += 'H'
-        }
-
-        println(row)
-        report.println(row)
+    incrementStats("Distribution", feature, "$label • $wdId")
+    getWdClassMappingToGnFeature(wdId, feature).each {
+        wdTypeStats.increment(feature, "${it[1]} (${getShortId(it[0])})", wdId)
     }
+
+    def row = "$count\t$label\t$wdId\t$feature\t"
+
+    def historical = mappings.find { it[-1] == 'H' }
+    if (historical) {
+        getWdClassMappingToGnFeature(wdId, historical).each {
+            wdTypeStats.increment('Historical', "${it[1]} (${getShortId(it[0])})", wdId)
+        }
+        row += 'HIST'
+    }
+
+    println(row)
+    report.println(row)
 }
 
 wdTypeStats.print(0, wdTypeStatsReport)
@@ -94,6 +95,13 @@ List<String> getTypes(String wdShortId) {
 
     return QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
             .collect { [it.get('class').toString(), it.get('classLabel').getLexicalForm()] }
+}
+
+boolean isUrbanArea(String wdShortId) {
+    def queryString = """
+        ASK { wd:$wdShortId wdt:P31/wdt:P279* wd:Q702492 }
+    """
+    return QueryRunner.remoteAsk(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 }
 
 String getShortId(String iri) {
