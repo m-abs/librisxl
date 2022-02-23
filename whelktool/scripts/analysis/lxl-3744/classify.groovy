@@ -9,15 +9,9 @@ def report = getReportWriter('classified.txt')
 
 ARQ.init()
 
-def prio = ['A', 'P', 'T', 'H', 'S', 'R', 'V', 'U', 'L']
-def prioA = ['A.ADM5', 'A.ADM4', 'A.ADM3', 'A.ADM2', 'A.ADM1', 'A.ADMD']
-
-def counter = 0
+def prio = ['P', 'T', 'H', 'S', 'R', 'V', 'U', 'A', 'L']
 
 new File(scriptDir, 'geo-topics.txt').eachLine { line ->
-    counter += 1
-    println(counter)
-
     def (count, label, wdId) = line.split('\t')
 
     def mappings = getGeonamesMappedClasses(wdId) as Set
@@ -32,7 +26,8 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
 
     def featureClass = prio.find { fc -> mappings.any { it.startsWith(fc) } }
     if (featureClass) {
-        def feature = (featureClass == 'A') ? (prioA.find { it in mappings } ?: featureClass) : featureClass
+        def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
+        def feature = (admDivisions.size() == 1) ? admDivisions[0] : featureClass
 
         incrementStats("Distribution", feature, "$label • $wdId")
         getWdClassMappingToGnFeature(wdId, feature).each {
@@ -41,7 +36,7 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
 
         def row = "$count\t$label\t$wdId\t$feature\t"
 
-        def historical = mappings.find {it[-1] == 'H' }
+        def historical = mappings.find { it[-1] == 'H' }
         if (historical) {
             getWdClassMappingToGnFeature(wdId, historical).each {
                 wdTypeStats.increment('Historical', "${it[1]} (${getShortId(it[0])})", wdId)
@@ -49,6 +44,7 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
             row += 'H'
         }
 
+        println(row)
         report.println(row)
     }
 }
