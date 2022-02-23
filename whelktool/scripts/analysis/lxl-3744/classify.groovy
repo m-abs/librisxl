@@ -34,6 +34,7 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
     if (featureClass) {
         def feature = (featureClass == 'A') ? (prioA.find { it in mappings } ?: featureClass) : featureClass
 
+        incrementStats("Distribution", feature, "$label • $wdId")
         getWdClassMappingToGnFeature(wdId, feature).each {
             wdTypeStats.increment(feature, "${it[1]} (${getShortId(it[0])})", wdId)
         }
