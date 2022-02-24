@@ -34,7 +34,7 @@ new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
 //    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'TÄT' : (featureClass() ?: generic()))
 
     incrementStats("Distribution", feature, "$label • $wdId")
-    getWdClassMappingToGnFeature(wdId, feature).each {
+    getWdClassMappingToFeature(wdId, feature).each {
         wdTypeStats.increment(feature, "${it[1]} (${getShortId(it[0])})", wdId)
     }
 
@@ -42,7 +42,7 @@ new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
 
     def historical = mappings.find { it[-1] == 'H' }
     if (historical) {
-        getWdClassMappingToGnFeature(wdId, historical).each {
+        getWdClassMappingToFeature(wdId, historical).each {
             wdTypeStats.increment('Historical', "${it[1]} (${getShortId(it[0])})", wdId)
         }
         line += 'HIST'
@@ -56,23 +56,35 @@ new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
 
 wdTypeStats.print(0, wdTypeStatsReport)
 
-List<String> getWdClassMappingToGnFeature(String wdShortId, String feature) {
+List<String> getWdClassMappingToFeature(String wdShortId, String feature) {
     def queryString = """
-        SELECT DISTINCT ?class ?classLabel { 
-            wd:$wdShortId wdt:P31 ?class . 
-            ?class wdt:P279*/wdt:P2452 "$feature"
+       SELECT DISTINCT ?class ?classLabel {
+            VALUES ?ua { wd:Q702492 wd:Q7930989 }
+            wd:$wdShortId wdt:P31 ?class .
+            ?class wdt:P279* ?ua .
             SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-        }
+       }
     """
-    if (feature.size() == 1) {
-        queryString = """
-            SELECT DISTINCT ?class ?classLabel { 
-                wd:$wdShortId wdt:P31 ?class . 
-                ?class wdt:P279*/wdt:P2452 ?gnCode
-                FILTER(STRSTARTS(?gnCode, "$feature"))
-                SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
-            }
-        """
+
+    if (feature != 'TÄT') {
+        if (feature.size() == 1) {
+            queryString = """
+                SELECT DISTINCT ?class ?classLabel { 
+                    wd:$wdShortId wdt:P31 ?class . 
+                    ?class wdt:P279*/wdt:P2452 ?gnCode
+                    FILTER(STRSTARTS(?gnCode, "$feature"))
+                    SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                }
+            """
+        } else {
+            queryString = """
+                SELECT DISTINCT ?class ?classLabel { 
+                    wd:$wdShortId wdt:P31 ?class . 
+                    ?class wdt:P279*/wdt:P2452 "$feature"
+                    SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+                }
+            """
+        }
     }
 
     return QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
