@@ -9,11 +9,11 @@ def report = getReportWriter('classified.txt')
 
 ARQ.init()
 
-def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'A', 'P', 'U']
+def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'P', 'A', 'U']
 def genericCodes = ['A.ADMD', 'P.PPL', 'L.RGN']
 
-new File(scriptDir, 'geo-topics.txt').eachLine { line ->
-    def (count, label, wdId) = line.split('\t')
+new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
+    def (count, label, wdId) = line
 
     def mappings = getGeonamesMappedClasses(wdId) as Set
 
@@ -26,29 +26,32 @@ new File(scriptDir, 'geo-topics.txt').eachLine { line ->
         return
     }
 
-    def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-5]/ }
+    def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-3]/ }
     def featureClass = { prio.find { fc -> mappings.any { it.startsWith(fc) && !(it in genericCodes) } } }
     def generic = { genericCodes.find { it in mappings }[0] }
 
-    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'UA' : (featureClass() ?: generic()))
+    def feature = isUrbanArea(wdId) ? 'TÄT' : (admDivisions.size() == 1 ? admDivisions[0] : (featureClass() ?: generic()))
+//    def feature = admDivisions.size() == 1 ? admDivisions[0] : (isUrbanArea(wdId) ? 'TÄT' : (featureClass() ?: generic()))
 
     incrementStats("Distribution", feature, "$label • $wdId")
     getWdClassMappingToGnFeature(wdId, feature).each {
         wdTypeStats.increment(feature, "${it[1]} (${getShortId(it[0])})", wdId)
     }
 
-    def row = "$count\t$label\t$wdId\t$feature\t"
+    line += feature
 
     def historical = mappings.find { it[-1] == 'H' }
     if (historical) {
         getWdClassMappingToGnFeature(wdId, historical).each {
             wdTypeStats.increment('Historical', "${it[1]} (${getShortId(it[0])})", wdId)
         }
-        row += 'HIST'
+        line += 'HIST'
+    } else {
+        line += ''
     }
 
-    println(row)
-    report.println(row)
+    println(line.join('\t'))
+    report.println(line.join('\t'))
 }
 
 wdTypeStats.print(0, wdTypeStatsReport)
@@ -100,7 +103,10 @@ List<String> getTypes(String wdShortId) {
 
 boolean isUrbanArea(String wdShortId) {
     def queryString = """
-        ASK { wd:$wdShortId wdt:P31/wdt:P279* wd:Q702492 }
+        ASK { 
+            VALUES ?ua { wd:Q702492 wd:Q7930989 }
+            wd:$wdShortId wdt:P31/wdt:P279* ?ua 
+        }
     """
     return QueryRunner.remoteAsk(queryString, WikidataEntity.WIKIDATA_ENDPOINT)
 }
