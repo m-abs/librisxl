@@ -12,15 +12,13 @@ TOPIC = 'Topic'
 
 ARQ.init()
 
-def c = 0
-
 [COMPLEX, TOPIC].each {category ->
     def labels = (category == COMPLEX) ? getComplexGeoLabels() : getGeoTopicLabels()
     labels.each { l, count ->
-        println("$count $l")
         try {
             def bestMatch = findBestMatch(l, category)
             if (bestMatch) {
+                println("$count\t$l\t${getShortId(bestMatch)}")
                 matchedTopics.println("$count\t$l\t${getShortId(bestMatch)}")
             } else {
                 unmatchedTopics.println("$count\t$l")
@@ -68,7 +66,13 @@ String findBestMatch(String label, String category) {
 
 String findMostOccurring(List<String> wdResources) {
     return wdResources.collect {r ->
-        def queryString = "SELECT (COUNT(*) as ?count) {?s ?p <$r>}"
+        def queryString = """
+            SELECT (COUNT(?item) as ?count) { 
+              ?item ?statement <$r> . 
+              ?property wikibase:statementProperty ?statement .
+              filter(!sameTerm(?property, wd:P131))
+            }
+        """
         def count = QueryRunner.remoteSelectResult(queryString, WikidataEntity.WIKIDATA_ENDPOINT).next().get('count').getInt()
         [r, count]
     }.max {
