@@ -9,8 +9,8 @@ def report = getReportWriter('classified.txt')
 
 ARQ.init()
 
-def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'P', 'A', 'U']
-def genericCodes = ['A.ADMD', 'P.PPL', 'L.RGN']
+def prio = ['T', 'H', 'L', 'S', 'R', 'V', 'P', 'A']
+def genericCodes = ['P.PPL', 'L.RGN']
 
 new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
     def (count, label, wdId) = line
@@ -26,7 +26,7 @@ new File(scriptDir, 'geo-topics.txt').splitEachLine('\t') { line ->
         return
     }
 
-    def admDivisions = mappings.findAll { it ==~ /A\.ADM[1-3]/ }
+    def admDivisions = mappings.findAll { it ==~ /A\.ADM[12]/ }
     def featureClass = { prio.find { fc -> mappings.any { it.startsWith(fc) && !(it in genericCodes) } } }
     def generic = { genericCodes.find { it in mappings }[0] }
 
