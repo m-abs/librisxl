@@ -3,6 +3,7 @@ package whelk.rest.api
 import groovy.transform.CompileStatic
 import groovy.transform.PackageScope
 import groovy.util.logging.Log4j2 as Log
+import whelk.util.RateLimiter
 
 import java.lang.management.ManagementFactory
 import javax.servlet.http.HttpServlet
@@ -52,7 +53,7 @@ class Crud extends HttpServlet {
     final static String XL_ACTIVE_SIGEL_HEADER = 'XL-Active-Sigel'
     final static String CONTEXT_PATH = '/context.jsonld'
     final static String DATA_CONTENT_TYPE = "application/ld+json"
-
+    
     static final Counter requests = Counter.build()
         .name("api_requests_total").help("Total requests to API.")
         .labelNames("method").register()
@@ -87,6 +88,14 @@ class Crud extends HttpServlet {
     Map siteAlias
 
     Map<String, Tuple2<Document, String>> cachedDocs
+    
+    enum RequestType { READ, WRITE, SEARCH }
+ 
+    Map<RequestType, RateLimiter> rateLimiters = [
+            RequestType.READ : new RateLimiter(100),
+            RequestType.WRITE : new RateLimiter(10),
+            RequestType.SEARCH : new RateLimiter(100),
+    ]
 
     Crud() {
         // Do nothing - only here for Tomcat to have something to call
@@ -212,6 +221,12 @@ class Crud extends HttpServlet {
 
     @Override
     void doGet(HttpServletRequest request, HttpServletResponse response) {
+        if (!rateLimiters[RequestType.READ].isOk(request.getRemoteAddr())) {
+            failedRequests.labels("GET", request.getRequestURI(), HttpTools.SC_TOO_MANY_REQUESTS.toString()).inc()
+            sendError(response, HttpTools.SC_TOO_MANY_REQUESTS, '')
+            return
+        }
+        
         requests.labels("GET").inc()
         ongoingRequests.labels("GET").inc()
         Summary.Timer requestTimer = requestsLatency.labels("GET").startTimer()
@@ -238,15 +253,26 @@ class Crud extends HttpServlet {
             displayInfo(response)
             return
         }
+        
+        if (request.pathInfo == "/find" || request.pathInfo.startsWith("/find.")) {
+            if (!rateLimiters[RequestType.SEARCH].isOk(request.getRemoteAddr())) {
+                failedRequests.labels("GET", request.getRequestURI(), HttpTools.SC_TOO_MANY_REQUESTS.toString()).inc()
+                sendError(response, HttpTools.SC_TOO_MANY_REQUESTS, 'Too many requests')
+                return
+            }
+            handleQuery(request, response)
+            return
+        }
+
+        if (!rateLimiters[RequestType.READ].isOk(request.getRemoteAddr())) {
+            failedRequests.labels("GET", request.getRequestURI(), HttpTools.SC_TOO_MANY_REQUESTS.toString()).inc()
+            sendError(response, HttpTools.SC_TOO_MANY_REQUESTS, 'Too many requests')
+            return
+        }
 
         // TODO: Handle things other than JSON / JSON-LD
         if (request.pathInfo == "/data" || request.pathInfo == "/data.json" || request.pathInfo == "/data.jsonld") {
             handleData(request, response)
-            return
-        }
-
-        if (request.pathInfo == "/find" || request.pathInfo.startsWith("/find.")) {
-            handleQuery(request, response)
             return
         }
 
@@ -668,7 +694,13 @@ class Crud extends HttpServlet {
             sendError(response, HttpServletResponse.SC_BAD_REQUEST, "Content-Type not supported.")
             return
         }
-
+        
+        if (!rateLimiters[RequestType.WRITE].isOk(request.getRemoteAddr())) {
+            failedRequests.labels("GET", request.getRequestURI(), HttpTools.SC_TOO_MANY_REQUESTS.toString()).inc()
+            sendError(response, HttpTools.SC_TOO_MANY_REQUESTS, 'Too many requests')
+            return
+        }
+        
         Map requestBody = getRequestBody(request)
 
         if (isEmptyInput(requestBody)) {
@@ -821,6 +853,12 @@ class Crud extends HttpServlet {
                     HttpServletResponse.SC_BAD_REQUEST.toString()).inc()
             sendError(response, HttpServletResponse.SC_BAD_REQUEST,
                     "Content-Type not supported.")
+            return
+        }
+
+        if (!rateLimiters[RequestType.WRITE].isOk(request.getRemoteAddr())) {
+            failedRequests.labels("GET", request.getRequestURI(), HttpTools.SC_TOO_MANY_REQUESTS.toString()).inc()
+            sendError(response, HttpTools.SC_TOO_MANY_REQUESTS, 'Too many requests')
             return
         }
 
