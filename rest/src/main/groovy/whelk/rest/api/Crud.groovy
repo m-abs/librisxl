@@ -91,6 +91,7 @@ class Crud extends HttpServlet {
     
     enum RequestType { READ, WRITE, SEARCH }
  
+    // TODO: make configurable
     Map<RequestType, RateLimiter> rateLimiters = [
             RequestType.READ : new RateLimiter(100),
             RequestType.WRITE : new RateLimiter(10),
