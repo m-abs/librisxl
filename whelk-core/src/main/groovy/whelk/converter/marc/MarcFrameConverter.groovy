@@ -66,6 +66,11 @@ class MarcFrameConverter implements FormatConverter {
         if (o instanceof List) {
             o.each { expandIncludes(it) }
         } else if (o instanceof Map) {
+            if ('@include' in o) {
+                def included = (Map) readConfig(o['@include'])
+                o.clear()
+                o.putAll(included)
+            }
             o.each {
                 if (it.value instanceof Map && '@include' in it.value) {
                     it.value = readConfig(it.value['@include'])
@@ -206,6 +211,8 @@ class MarcConversion {
             procStep = new CopyOnRevertStep(props); break
             case 'InjectWhenMatchingOnRevert':
             procStep = new InjectWhenMatchingOnRevertStep(props); break
+            case 'NormalizeWorkTitles':
+            procStep = new NormalizeWorkTitlesStep(props); break
             case null:
             return null
             default:
