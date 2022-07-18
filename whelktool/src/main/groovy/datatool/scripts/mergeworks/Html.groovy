@@ -24,11 +24,15 @@ class Html {
         String header = """
             <tr>
                 <th><a id="${id}"><a href="#${id}">${id}</th>
-                ${cluster.collect { doc -> "<th><a id=\"${doc.doc.shortId}\" href=\"${doc.link()}\">${doc.doc.shortId}</a></th>" }.join('\n')}
+                <th><a id=\"${cluster[0].doc.shortId}\" href=\"${cluster[0].link()}\">${cluster[0].doc.shortId}</a></th>
+                <th></th>
+                ${cluster.drop(2).collect { doc -> "<th><a id=\"${doc.doc.shortId}\" href=\"${doc.link()}\">${doc.doc.shortId}</a></th>" }.join('\n')}
             </tr>
             <tr>
                 <td></td>
-                ${cluster.collect { doc -> "<td>${doc.instanceDisplayTitle()}</td>" }.join('\n')}                                                             
+                <td>${cluster[0].mainEntityDisplayTitle()}</td>
+                <td></td>
+                ${cluster.drop(2).collect { doc -> "<td>${doc.mainEntityDisplayTitle()}</td>" }.join('\n')}
             </tr>
            """.stripIndent()
 
@@ -100,12 +104,31 @@ class Html {
     }
 
     private static def fieldRows(Collection<Doc> cluster, String cls) {
-        { field ->
+        def (work, diff) = cluster.take(2)
+        def instances = cluster.drop(2)
+
+        def diffMap = diff.getWork()
+        def compMap = work.getWork()
+
+        diffMap.removeAll { k, v ->
+            if (v == compMap[k]) {
+                return true
+            }
+            if (v instanceof List) {
+                diffMap[k] = v.findAll { !(it in compMap[k]) }
+            }
+            return false
+        }
+
+        return { field ->
             """
             <tr class="${cls}">
                 <td>${field}</td>
-                ${cluster.collect { "<td>${it.getDisplayText(field)}</td>" }.join('\n')}   
+                <td>${work.getDisplayText(field)}</td>
+                ${diffMap[field] ? "<td class=\"DIFF\">${diff.getDisplayText(field)}</td>\n" : "<td></td>"}
+                ${instances.collect { "<td>${it.getDisplayText(field)}</td>" }.join('\n')}
             </tr> """.stripIndent()
         }
     }
+
 }

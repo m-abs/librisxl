@@ -19,6 +19,7 @@ import java.util.function.Function
 import static datatool.scripts.mergeworks.FieldStatus.DIFF
 
 import static datatool.scripts.mergeworks.Util.asList
+import static datatool.scripts.mergeworks.Util.bestEncodingLevel
 import static datatool.scripts.mergeworks.Util.chipString
 import static datatool.scripts.mergeworks.Util.getPathSafe
 import static datatool.scripts.mergeworks.Util.normalize
@@ -98,6 +99,48 @@ class WorkToolJob {
                             .collect { Html.clusterTable(it) }
                             .join('') + Html.HORIZONTAL_RULE
                     )
+                }
+                catch (Exception e) {
+                    System.err.println(e.getMessage())
+                    e.printStackTrace(System.err)
+                }
+            }
+        })
+        println(Html.END)
+    }
+
+    void showMaxLevelDiff(boolean mergeAllOnMaxLevel = false) {
+        println(Html.START)
+        run({ cluster ->
+            return {
+                try {
+                    def allMerged = mergedWorks(titleClusters(cluster)).findAll { it.derivedFrom.size() > 1 }
+                    def maxLevelDocs = allMerged.collect {
+                        for (String level : bestEncodingLevel) {
+                            if (mergeAllOnMaxLevel) {
+                                def onLevel = it.derivedFrom.findAll { it.encodingLevel() == level }
+                                if (onLevel) {
+                                    return onLevel
+                                }
+                            } else {
+                                def onLevel = it.derivedFrom.find { it.encodingLevel() == level }
+                                if (onLevel) {
+                                    return [onLevel]
+                                }
+                            }
+                        }
+                    }
+                    if (allMerged) {
+//                        [mergedWorks(maxLevelDocs), allMerged].transpose()
+//                                .collect { ml, all -> [new Doc(whelk, ml.work), new Doc(whelk, all.work)] + all.derivedFrom }
+//                                .collect { Html.clusterTable(it) }
+//                                .join('') + Html.HORIZONTAL_RULE
+                        println([mergedWorks(maxLevelDocs), allMerged].transpose()
+                                .collect { ml, all -> [new Doc(whelk, ml.work), new Doc(whelk, all.work)] + all.derivedFrom }
+                                .collect { Html.clusterTable(it) }
+                                .join('') + Html.HORIZONTAL_RULE
+                        )
+                    }
                 }
                 catch (Exception e) {
                     System.err.println(e.getMessage())

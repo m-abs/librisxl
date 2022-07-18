@@ -32,6 +32,8 @@ class WorkTool {
         cli.s(longOpt: 'show', 'Show. Generate HTML report with title clusters')
         cli.s2(longOpt: 'showWorks', 'Show. Generate HTML report with works')
         cli.sh(longOpt: 'showHubs', 'Show. Generate HTML report with title clusters containing different works')
+        cli.l(longOpt: 'showMaxLevelDiff', 'Show. Generate HTML report with works showing what goes missing if picking arbitrary work with highest possible encoding level')
+        cli.ml(longOpt: 'showMergedMaxLevelDiff', 'Show. Generate HTML report with works showing what goes missing if merging works with highest possible encoding level')
         cli.dd(longOpt: 'diff', args: 1, argName: 'diff', 'Field to diff')
         cli.i(longOpt: 'instance-vals', args: 1, argName: 'field', 'Instance field to print, e.g. editionStatement')
         cli.t(longOpt: 'subTitles', 'Print subtitles')
@@ -68,6 +70,10 @@ class WorkTool {
             m.showWorks()
         } else if (options.sh) {
             m.showHubs()
+        } else if (options.l) {
+            m.showMaxLevelDiff()
+        } else if (options.ml) {
+            m.showMaxLevelDiff(true)
         } else if (options.t) {
             m.subTitles()
         } else if (options.i) {
@@ -93,7 +99,7 @@ class WorkTool {
         } else if (options.r) {
             m.revert()
         } else if (options.cr) {
-            m.filterClusters(  { c -> c.any { Doc d -> d.hasRole(options.cr) } } )
+            m.filterClusters({ c -> c.any { Doc d -> d.hasRole(options.cr) } })
         } else {
             cli.usage()
             System.exit 1

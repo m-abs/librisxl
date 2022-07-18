@@ -22,6 +22,9 @@
  td {
    vertical-align: top;
  }
+ td.DIFF {
+     background-color: lightpink !important;
+ }
  hr {
    border: 4px solid;
  }

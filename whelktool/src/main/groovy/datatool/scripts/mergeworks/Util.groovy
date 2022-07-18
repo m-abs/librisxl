@@ -188,29 +188,15 @@ class Util {
             null
     ]
 
-    // Return the most common title for the best encodingLevel
     static Object bestTitle(Collection<Doc> docs) {
         def isTitle = { it.'@type' == 'Title' }
-        def addSource = { t, d -> t.plus(['source': [d.getMainEntity().subMap('@id')]]) }
 
-        for (def level : bestEncodingLevel) {
-            def titles = docs
-                    .findAll { it.encodingLevel() == level }
-                    .collect { d ->
-                        d.getWork().get('hasTitle')?.findAll(isTitle)
-                                ?: d.getMainEntity().get('hasTitle')?.findResults { isTitle(it) ? addSource(it, d) : null }
-                    }
-                    .grep()
+        def titles = docs.collect { d -> d.getWork().get('hasTitle')?.findAll(isTitle)
+                ?: d.getMainEntity().get('hasTitle')?.findAll(isTitle)
+        }.grep()
 
-            if (!titles) {
-                continue
-            }
-
-            titles = titles.collect(Util.&dropSubTitles)
-            return partition(titles, { a, b -> a == b }).sort { it.size() }.reverse().first().first()
-        }
-
-        return null
+        titles = titles.collect(Util.&dropSubTitles)
+        return partition(titles, { a, b -> a == b }).sort { it.size() }.reverse().first().first()
     }
 
     static Map<String, List<Tuple2<Relator, Boolean>>> parseRespStatement(String respStatement) {

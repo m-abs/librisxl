@@ -55,21 +55,21 @@ class WorkComparator {
     }
 
     Map merge(Collection<Doc> docs) {
+        if (docs.size() == 1) {
+            return merge(docs * 2)
+        }
+
         Map result = [:]
 
-        if (docs.size() > 1) {
-            fields.each { field ->
-                FieldHandler h = comparators.getOrDefault(field, DEFAULT)
-                def value = h instanceof ValuePicker
-                        ? h.pick(docs)
-                        : mergeField(field, h, docs)
+        fields.each { field ->
+            FieldHandler h = comparators.getOrDefault(field, DEFAULT)
+            def value = h instanceof ValuePicker
+                    ? h.pick(docs)
+                    : mergeField(field, h, docs)
 
-                if (value) {
-                    result[field] = value
-                }
+            if (value) {
+                result[field] = value
             }
-        } else {
-            result = docs[0].getWork()
         }
 
         if (!result['hasTitle']) {
@@ -113,7 +113,8 @@ class WorkComparator {
     static Set<String> allFields(Collection<Doc> cluster) {
         Set<String> fields = new HashSet<>()
         cluster.each { fields.addAll(it.getWork().keySet()) }
-        return fields - 'summary' // - 'summary' only temporary, remove when summaries have been moved to instance (LXL-3303)
+        return fields - 'summary'
+        // - 'summary' only temporary, remove when summaries have been moved to instance (LXL-3303)
     }
 
     Map<String, FieldStatus> fieldStatuses(Collection<Doc> cluster) {
