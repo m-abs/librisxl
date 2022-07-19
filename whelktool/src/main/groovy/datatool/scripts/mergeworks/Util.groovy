@@ -150,17 +150,23 @@ class Util {
                 .collect { it['flatTitle'] }
     }
 
-    static String chipString(def thing, Whelk whelk) {
+    static String chipString(def thing, Whelk whelk, String textColor="black") {
         if (thing instanceof Integer) {
             return thing
         }
-
+        if (thing instanceof List) {
+            def (drop, keep) = thing.split { it.dropTerm }
+            if (drop) {
+                drop.each { it.remove('dropTerm') }
+                return chipString(keep, whelk) + chipString(drop, whelk, "red")
+            }
+        }
         def chips = whelk.jsonld.toChip(thing)
         if (chips.size() < 2) {
             chips = thing
         }
         if (chips instanceof List) {
-            return chips.collect { valuesString(it) }.sort().join('<br>')
+            return "<p style=\"color:$textColor\">" + chips.collect { valuesString(it) }.sort().join("<br>") + "</p>"
         }
         return valuesString(chips)
     }
@@ -191,8 +197,9 @@ class Util {
     static Object bestTitle(Collection<Doc> docs) {
         def isTitle = { it.'@type' == 'Title' }
 
-        def titles = docs.collect { d -> d.getWork().get('hasTitle')?.findAll(isTitle)
-                ?: d.getMainEntity().get('hasTitle')?.findAll(isTitle)
+        def titles = docs.collect { d ->
+            d.getWork().get('hasTitle')?.findAll(isTitle)
+                    ?: d.getMainEntity().get('hasTitle')?.findAll(isTitle)
         }.grep()
 
         titles = titles.collect(Util.&dropSubTitles)

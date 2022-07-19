@@ -313,7 +313,7 @@ class WorkToolJob {
         def works = []
         titleClusters.each { titleCluster ->
             titleCluster.sort { it.numPages() }
-            WorkComparator c = new WorkComparator(WorkComparator.allFields(titleCluster))
+            WorkComparator c = new WorkComparator(WorkComparator.allFields(titleCluster), whelk.getRelations())
 
             works.addAll(partition(titleCluster, { Doc a, Doc b -> c.sameWork(a, b) })
                     .each { work -> work.each { doc -> doc.removeComparisonProps() } }

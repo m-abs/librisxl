@@ -1,6 +1,7 @@
 package datatool.scripts.mergeworks.compare
 
 import datatool.util.DocumentComparator
+import whelk.Relations
 
 //FIXME
 class GenreForm extends StuffSet {
@@ -19,6 +20,12 @@ class GenreForm extends StuffSet {
             ],
     ]
 
+    def relations
+
+    GenreForm(Relations relations) {
+        this.relations = relations
+    }
+
     @Override
     Object merge(Object a, Object b) {
         return mergeCompatibleElements(super.merge(a, b).findAll { it.'@id' }) { gf1, gf2 ->
@@ -26,6 +33,14 @@ class GenreForm extends StuffSet {
                 gf2
             } else if (n(gf2, gf1)) {
                 gf1
+            } else if (relations.isImpliedBy(gf1['@id'], gf2['@id'])) {
+                gf1['dropTerm'] = true
+                return
+//                gf2
+            } else if (relations.isImpliedBy(gf2['@id'], gf1['@id'])) {
+                gf2['dropTerm'] = true
+                return
+//                gf1
             }
         }
     }

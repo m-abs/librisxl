@@ -12,6 +12,7 @@ import datatool.scripts.mergeworks.compare.TranslationOf
 import datatool.scripts.mergeworks.compare.ValuePicker
 import datatool.scripts.mergeworks.compare.WorkTitle
 import datatool.util.DocumentComparator
+import whelk.Relations
 
 import static datatool.scripts.mergeworks.Util.bestTitle
 
@@ -35,6 +36,12 @@ class WorkComparator {
 
     WorkComparator(Set<String> fields) {
         this.fields = new HashSet<>(fields)
+    }
+
+    WorkComparator(Set<String> fields, Relations relations) {
+        this.fields = new HashSet<>(fields)
+        comparators.put('genreForm', new GenreForm(relations))
+        comparators.put('subject', new Subject(relations))
     }
 
     boolean sameWork(Doc a, Doc b) {
