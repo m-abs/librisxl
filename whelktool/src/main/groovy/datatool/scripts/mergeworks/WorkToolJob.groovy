@@ -131,10 +131,6 @@ class WorkToolJob {
                         }
                     }
                     if (allMerged) {
-//                        [mergedWorks(maxLevelDocs), allMerged].transpose()
-//                                .collect { ml, all -> [new Doc(whelk, ml.work), new Doc(whelk, all.work)] + all.derivedFrom }
-//                                .collect { Html.clusterTable(it) }
-//                                .join('') + Html.HORIZONTAL_RULE
                         println([mergedWorks(maxLevelDocs), allMerged].transpose()
                                 .collect { ml, all -> [new Doc(whelk, ml.work), new Doc(whelk, all.work)] + all.derivedFrom }
                                 .collect { Html.clusterTable(it) }
