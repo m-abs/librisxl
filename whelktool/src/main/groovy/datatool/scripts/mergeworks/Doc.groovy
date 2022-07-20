@@ -162,7 +162,7 @@ class Doc {
         } else if (field == 'reproductionOf') {
             return reproductionOfLink()
         } else {
-            return chipString(getWork().getOrDefault(field, []))
+            return chipString(isInstance() ? getWork().getOrDefault(field, []) : getMainEntity().getOrDefault(field, []))
         }
     }
 

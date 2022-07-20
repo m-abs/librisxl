@@ -107,20 +107,16 @@ class Html {
         def (work, diff) = cluster.take(2)
         def instances = cluster.drop(2)
 
-        def diffMap = diff.getWork()
-        def compMap = work.getWork()
-
-        diffMap.removeAll { k, v ->
-            if (v == compMap[k]) {
-                return true
-            }
-            if (v instanceof List) {
-                diffMap[k] = v.findAll { !(it in compMap[k]) }
-            }
-            return false
-        }
+        def diffMap = diff.getMainEntity()
+        def compMap = work.getMainEntity()
 
         return { field ->
+            if (cls != COMPATIBLE.toString() || diffMap[field] == compMap[field]) {
+                diffMap.remove(field)
+            } else if (diffMap[field] instanceof List) {
+                diffMap[field] = diffMap[field].findAll { !(it in compMap[field]) }
+            }
+
             """
             <tr class="${cls}">
                 <td>${field}</td>

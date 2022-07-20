@@ -158,7 +158,7 @@ class Util {
             def (drop, keep) = thing.split { it.dropTerm }
             if (drop) {
                 drop.each { it.remove('dropTerm') }
-                return chipString(keep, whelk) + chipString(drop, whelk, "red")
+                return chipString(keep, whelk) + chipString(drop.unique(), whelk, "red")
             }
         }
         def chips = whelk.jsonld.toChip(thing)
