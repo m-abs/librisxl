@@ -150,7 +150,7 @@ class Util {
                 .collect { it['flatTitle'] }
     }
 
-    static String chipString(def thing, Whelk whelk, String textColor="black") {
+    static String chipString(def thing, Whelk whelk, String textColor = "black") {
         if (thing instanceof Integer) {
             return thing
         }
@@ -197,13 +197,21 @@ class Util {
     static Object bestTitle(Collection<Doc> docs) {
         def isTitle = { it.'@type' == 'Title' }
 
-        def titles = docs.collect { d ->
-            d.getWork().get('hasTitle')?.findAll(isTitle)
-                    ?: d.getMainEntity().get('hasTitle')?.findAll(isTitle)
+        def workTitles = docs.collect { it.getWork().get('hasTitle')?.findAll(isTitle) }
+        def instanceTitles = docs.collect { it.getMainEntity().get('hasTitle')?.findAll(isTitle) }
+
+        def titles = [workTitles, instanceTitles].transpose().findResults { wt, itt ->
+            wt ?: itt
         }.grep()
 
         titles = titles.collect(Util.&dropSubTitles)
-        return partition(titles, { a, b -> a == b }).sort { it.size() }.reverse().first().first()
+        def bestTitles = partition(titles, { a, b -> a == b })
+                .sort { it.size() }
+                .reverse()
+                .with { p -> p.takeWhile { it.size() == p.first().size() } }
+                .collect { it.first() }
+
+        return bestTitles.find { it in workTitles } ?: bestTitles.first()
     }
 
     static Map<String, List<Tuple2<Relator, Boolean>>> parseRespStatement(String respStatement) {
