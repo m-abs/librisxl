@@ -410,10 +410,7 @@ class WorkToolJob {
         run({ cluster ->
             return {
                 statistics.increment('add 9pu', 'clusters checked')
-                def docs = cluster
-                        .collect(whelk.&getDocument)
-                        .findAll()
-                        .collect { [doc: it, checksum: it.getChecksum(whelk.jsonld), changed: false] }
+                def docs = prepareDocs(cluster)
 
                 def ill = ['@id': Relator.ILLUSTRATOR.iri]
                 def pu = ['@id': Relator.PRIMARY_RIGHTS_HOLDER.iri]
@@ -474,10 +471,7 @@ class WorkToolJob {
         run({ cluster ->
             return {
                 statistics.increment('fetch contribution from respStatement', 'clusters checked')
-                def docs = cluster
-                        .collect(whelk.&getDocument)
-                        .findAll()
-                        .collect { [doc: it, checksum: it.getChecksum(whelk.jsonld), changed: false] }
+                def docs = prepareDocs(cluster)
 
                 docs.each {
                     Document d = it.doc
@@ -607,9 +601,7 @@ class WorkToolJob {
             return {
                 statistics.increment('link contribution', 'clusters checked')
                 // TODO: check work language?
-                def docs = cluster
-                        .collect(whelk.&getDocument)
-                        .collect { [doc: it, checksum: it.getChecksum(whelk.jsonld), changed: false] }
+                def docs = prepareDocs(cluster)
 
                 List<Map> linked = []
                 docs.each { d ->
@@ -734,6 +726,12 @@ class WorkToolJob {
 
         s.shutdown()
         s.awaitTermination(1, TimeUnit.DAYS)
+    }
+
+    private List<Map<String, Object>> prepareDocs(Collection<String> cluster) {
+        return cluster.collect(whelk.&getDocument)
+                .findAll()
+                .collect { [doc: it, checksum: it.getChecksum(whelk.jsonld), changed: false] }
     }
 
     private void saveDocs(List<Map> docs) {
