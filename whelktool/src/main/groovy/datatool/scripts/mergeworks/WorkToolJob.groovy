@@ -405,6 +405,66 @@ class WorkToolJob {
         })
     }
 
+    void addTranslationOfLang() {
+        def hasLanguage = { tr -> tr.language && asList(tr.language) != [['@id': 'https://id.kb.se/language/und']] }
+        def findTranslators = { c -> c.findAll { ['@id': Relator.TRANSLATOR.iri] in asList(it.role) } }
+
+        def contributionPath = ['@graph', 1, 'instanceOf', 'contribution']
+        def translationOfPath = ['@graph', 1, 'instanceOf', 'translationOf']
+
+        statistics.printOnShutdown()
+
+        run({ cluster ->
+            return {
+                statistics.increment('add translationOf lang', 'clusters checked')
+                def docs = prepareDocs(cluster)
+
+                docs.each {
+                    Document d = it.doc
+
+                    statistics.increment('add translationOf lang', 'docs checked')
+
+                    def translationOf = asList(getPathSafe(d.data, translationOfPath))
+                    def contribution = getPathSafe(d.data, contributionPath, [])
+                    def translators = findTranslators(contribution)
+
+                    if (translationOf.size() != 1 || hasLanguage(translationOf[0]) || !translators) {
+                        return
+                    }
+
+                    for (Map other : docs) {
+                        Document od = other.doc
+
+                        def otherTranslationOf = asList(getPathSafe(od.data, translationOfPath, []))
+                        def otherContribution = getPathSafe(od.data, contributionPath, [])
+                        def otherTranslators = findTranslators(otherContribution)
+
+                        // No language to find
+                        if (otherTranslationOf.size() != 1 || !hasLanguage(otherTranslationOf[0])) {
+                            continue
+                        }
+
+                        if (translators.any { t ->
+                            otherTranslators.any { ot ->
+                                asList(t.agent) == asList(ot.agent)
+                            }
+                        }) {
+                            translationOf[0]['language'] = otherTranslationOf[0]['language']
+                            it.changed = true
+                            statistics.increment('add translationOf lang', "${otherTranslationOf[0]['language']} added")
+                            if (verbose) {
+                                println("${d.shortId} <- ${translationOf[0]['language']} (${od.shortId})")
+                            }
+                            break
+                        }
+                    }
+                }
+
+                saveDocs(docs)
+            }
+        })
+    }
+
     void add9pu() {
         statistics.printOnShutdown()
         run({ cluster ->
