@@ -448,7 +448,6 @@ class WorkToolJob {
                             }
 
                             if (found9pu) {
-                                println(c)
                                 it.changed = true
                                 break
                             }
@@ -456,14 +455,7 @@ class WorkToolJob {
                     }
                 }
 
-                docs.each {
-                    if (!dryRun && it.changed) {
-                        Document d = it.doc
-                        d.setGenerationDate(new Date())
-                        d.setGenerationProcess(generationProcess)
-                        whelk.storeAtomicUpdate(d, !loud, changedIn, changedBy, it.checksum)
-                    }
-                }
+                saveDocs(docs)
             }
         })
     }
@@ -593,14 +585,7 @@ class WorkToolJob {
                     }
                 }
 
-                docs.each {
-                    if (!dryRun && it.changed) {
-                        Document d = it.doc
-                        d.setGenerationDate(new Date())
-                        d.setGenerationProcess(generationProcess)
-                        whelk.storeAtomicUpdate(d, !loud, changedIn, changedBy, it.checksum)
-                    }
-                }
+                saveDocs(docs)
             }
         }
 
@@ -663,7 +648,6 @@ class WorkToolJob {
                 List<Map> primaryAutAgents = []
                 docs.each {
                     def contribution = getPathSafe(it.doc.data, ['@graph', 1, 'instanceOf', 'contribution'], [])
-                    def p = contribution.findAll()
                     contribution.each {
                         if (it['@type'] == 'PrimaryContribution' && it['role'] == ['@id': 'https://id.kb.se/relator/author'] && it['agent']) {
                             Map agent = loadIfLink(it['agent'])
@@ -691,14 +675,7 @@ class WorkToolJob {
                     }
                 }
 
-                docs.each {
-                    if (!dryRun && it.changed) {
-                        Document d = it.doc
-                        d.setGenerationDate(new Date())
-                        d.setGenerationProcess(generationProcess)
-                        whelk.storeAtomicUpdate(d, !loud, changedIn, changedBy, it.checksum)
-                    }
-                }
+                saveDocs(docs)
             }
         })
     }
@@ -757,6 +734,17 @@ class WorkToolJob {
 
         s.shutdown()
         s.awaitTermination(1, TimeUnit.DAYS)
+    }
+
+    private void saveDocs(List<Map> docs) {
+        docs.each {
+            if (!dryRun && it.changed) {
+                Document d = it.doc
+                d.setGenerationDate(new Date())
+                d.setGenerationProcess(generationProcess)
+                whelk.storeAtomicUpdate(d, !loud, changedIn, changedBy, it.checksum)
+            }
+        }
     }
 
     private Collection<Doc> loadDocs(Collection<String> cluster) {
