@@ -1,7 +1,5 @@
 package whelk.util
 
-import static whelk.JsonLd.TYPE_KEY
-
 class DocumentUtil {
     public final static Operation NOP = new Nop()
 
@@ -137,7 +135,7 @@ class DocumentUtil {
     }
 
     private static boolean isDefective(Map node) {
-        node.size() == 0 || (node.size() == 1 && node.containsKey(TYPE_KEY))
+        node.size() == 0 || (node.size() == 1 && node.containsKey(whelk.JsonLd.TYPE_KEY))
     }
 
     private static class DFS {

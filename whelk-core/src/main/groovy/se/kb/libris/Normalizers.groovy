@@ -10,12 +10,6 @@ import whelk.filter.BlankNodeLinker
 import whelk.filter.LanguageLinker
 import whelk.util.DocumentUtil.Remove
 
-import static whelk.JsonLd.GRAPH_KEY
-import static whelk.JsonLd.ID_KEY
-import static whelk.JsonLd.TYPE_KEY
-import static whelk.JsonLd.asList
-import static whelk.util.DocumentUtil.traverse
-
 /*
 TODO: add support for linking blank nodes based on owl:hasKey
 example: 
@@ -99,13 +93,13 @@ class Normalizers {
         ]
         
         return { Document doc ->
-            def (_record, thing) = doc.data[GRAPH_KEY]
+            def (_record, thing) = doc.data[JsonLd.GRAPH_KEY]
             thing.identifiedBy?.with {
                 asList(it).forEach { Map id ->
                     id.typeNote?.with { String tn -> 
                         OBSOLETE_TYPE_NOTES[tn.toLowerCase()] 
                     }?.with { type ->
-                        id[TYPE_KEY] = type
+                        id[JsonLd.TYPE_KEY] = type
                         id.remove('typeNote')
                     }
                 }
@@ -124,14 +118,14 @@ class Normalizers {
      */
     static DocumentNormalizer workPosition(JsonLd jsonLd) {
         return { Document doc ->
-            def (_record, thing, legacyWork) = doc.data[GRAPH_KEY]
+            def (_record, thing, legacyWork) = doc.data[JsonLd.GRAPH_KEY]
 
             boolean shouldMove = (legacyWork && isInstanceOf(jsonLd, legacyWork, 'Work')
-                    && thing && thing['instanceOf'] && thing['instanceOf'][ID_KEY]
-                    && thing['instanceOf'][ID_KEY] == legacyWork[ID_KEY])
+                    && thing && thing['instanceOf'] && thing['instanceOf'][JsonLd.ID_KEY]
+                    && thing['instanceOf'][JsonLd.ID_KEY] == legacyWork[JsonLd.ID_KEY])
 
             if (shouldMove) {
-                def work = doc.data[GRAPH_KEY].remove(2)
+                def work = doc.data[JsonLd.GRAPH_KEY].remove(2)
                 work.remove(ID_KEY)
                 thing['instanceOf'] = work
             }
