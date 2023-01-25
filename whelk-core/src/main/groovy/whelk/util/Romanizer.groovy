@@ -1,14 +1,8 @@
 package whelk.util
 
 import com.ibm.icu.text.Transliterator
-import whelk.search.ElasticFind
-import static whelk.JsonLd.ID_KEY as ID
-import static whelk.JsonLd.TYPE_KEY as TYPE
 
 class Romanizer {
-    Map langTags
-    List<Map> tLangs
-
     /** Languages that use ALA-LOC "Asian Cyrillic - Multi-purpose transliteration for non-Slavic Cyrillic scripts"
      https://github.com/lcnetdev/transliterator/blob/main/scriptshifter/tables/data/index.yml
 
@@ -78,20 +72,5 @@ class Romanizer {
 
     private static String readFromResources(String filename) {
         Romanizer.class.getClassLoader().getResourceAsStream('romanizer/' + filename).getText("UTF-8")
-    }
-
-    void loadDefinitions(ElasticFind elasticFind) {
-        this.langTags = loadLangTags(elasticFind)
-        this.tLangs = loadTLangs(elasticFind)
-    }
-
-    private static List<Map> loadTLangs(ElasticFind elasticFind) {
-        return elasticFind.find([(TYPE): ['TransformedLanguageForm']])
-                .findAll { it.inLangScript[ID] == 'https://id.kb.se/i18n/script/Latn' }
-    }
-
-    private static Map<String, String> loadLangTags(ElasticFind elasticFind) {
-        return elasticFind.find([(TYPE): ['Language']])
-                .findAll { it.langTag }.collectEntries { [it[ID], it.langTag] }
     }
 }
