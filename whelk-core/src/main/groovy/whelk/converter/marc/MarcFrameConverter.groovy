@@ -1964,6 +1964,11 @@ class MarcFieldHandler extends BaseMarcFieldHandler {
         if (!order['...']) {
             order['...'] = order.size()
         }
+        
+        if (!order['6']) {
+            order['6'] = -1 // MARC 21, Appendix A: "Subfield $6 is always the first subfield in the field."
+        }
+        
         Closure getOrder = {
             [order.get(it.code, order['...']), !it.code.isNumber(), it.code]
         }

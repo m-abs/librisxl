@@ -1,6 +1,7 @@
 package whelk.converter.marc
 
 import groovy.transform.CompileStatic
+import groovy.transform.MapConstructor
 import groovy.transform.NullCheck
 import whelk.filter.LanguageLinker
 import whelk.util.DocumentUtil
@@ -27,6 +28,8 @@ class RomanizationStep extends MarcFramePostProcStepBase {
     Map byLangToBase
     Map langToTLang
 
+    // TODO: these should be ISO 15924 -> MARC code
+    // TODO: MARC standard allows ISO 15924 in $6 but Libris practice doesn't
     Map scriptToCode =
             [
                     'https://id.kb.se/i18n/script/Arab': '/(3/r',
@@ -137,7 +140,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
              (romanized) object *before* reverting in order to get the fieldrefs right.
              */
 
-            def fieldrefLocationToFieldRef = [:]
+            List<Ref> fieldRefs = [] 
             DocumentUtil.findKey(thingCopy, '_revertedBy') { value, path ->
                 def fieldMap = reverted.fields.find { it.containsKey(value) }
                 def fieldNumber = value
@@ -158,12 +161,18 @@ class RomanizationStep extends MarcFramePostProcStepBase {
                 }
 
                 def hasBib880 = thing.computeIfAbsent(HAS_BIB880, s -> [])
-                def fieldrefIdx = zeroFill(hasBib880.size() + 1)
-                def ref = "$fieldNumber-$fieldrefIdx${scriptToCode[tLangCodes[tLang].fromLangScript] ?: ''}" as String
+                def ref = new Ref(
+                        toField: fieldNumber,
+                        occurenceNumber: hasBib880.size() + 1,
+                        path: path.collect().dropRight(1)
+                )
+                
+                //def ref = "$fieldNumber-$fieldrefIdx${scriptToCode[tLangCodes[tLang].fromLangScript] ?: ''}" as String
+                def scriptCode = scriptToCode[tLangCodes[tLang].fromLangScript]
                 def bib880 =
                         [
                                 (TYPE)          : 'marc:Bib880',
-                                (PART_LIST)     : [[(FIELDREF): ref]] + romanizedSubfields,
+                                (PART_LIST)     : [[(FIELDREF): ref.from880(scriptCode)]] + romanizedSubfields,
                                 (BIB880 + '-i1'): field[IND1],
                                 (BIB880 + '-i2'): field[IND2]
                         ]
@@ -171,21 +180,44 @@ class RomanizationStep extends MarcFramePostProcStepBase {
                 hasBib880.add(bib880)
                 reverted.fields.remove(fieldMap)
 
-                fieldrefLocationToFieldRef[path.collect().dropRight(1)] = "880-$fieldrefIdx" as String
+                fieldRefs.add(ref)
 
                 return
             }
-
-            fieldrefLocationToFieldRef.each { path, ref ->
-                def refLocation = DocumentUtil.getAtPath(thing, path)
-                def uniqueRefs = asList(refLocation[FIELDREF]).plus(asList(ref)).unique()
-                refLocation[FIELDREF] = uniqueRefs.size() == 1 ? uniqueRefs[0] : uniqueRefs
+            
+            fieldRefs.each { r ->
+                def t = DocumentUtil.getAtPath(thing, r.path)
+                t[r.propertyName()] = (asList(t[r.propertyName()]) << r.to880()).unique()
             }
         }
 
         putRomanizedLiteralInNonByLang(thing, byLangPaths)
     }
-
+    
+    @MapConstructor
+    private class Ref {
+        String toField
+        int occurenceNumber
+        List path
+        
+        String from880(String scriptCode) {
+            "$toField-${zeroFill(occurenceNumber)}${scriptCode ?: ''}"
+        }
+        
+        String to880() {
+            "880-${zeroFill(occurenceNumber)}"
+        }
+        
+        String propertyName() {
+            switch (toField) {
+                case '035': return 'marc:bib035-fieldref' // TODO: also 'marc:hold035-fieldref'
+                case '041': return 'marc:bib041-fieldref'
+                case '250': return 'marc:bib250-fieldref'
+                default: return 'marc:fieldref'
+            }
+        } 
+    }
+    
     boolean mergeAltLanguage(Map converted, Map thing) {
         // Since the 880s do not specify which language they are in, we assume that they are in the first work language
         def workLang = thing.instanceOf.subMap('language')
@@ -229,7 +261,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
 
         return true
     }
-
+    
     def putRomanizedLiteralInNonByLang(Map thing, List<List> byLangPaths) {
         byLangPaths.each {
             def path = it.dropRight(1)
@@ -255,7 +287,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
             }
         }
     }
-
+    
     def putOriginalLiteralInNonByLang(Map thing, List<List> byLangPaths, String tLang) {
         byLangPaths.each {
             def path = it.dropRight(1)
