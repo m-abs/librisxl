@@ -225,7 +225,8 @@ class Whelk {
         languageResources = new RomanizationStep.LanguageResources(
                 languageLinker: languageLinker,
                 languages: elasticFind.find([(JsonLd.TYPE_KEY): ['Language']]).collect(),
-                transformedLanguageForms: elasticFind.find([(JsonLd.TYPE_KEY): ['TransformedLanguageForm']]).collect()           
+                transformedLanguageForms: elasticFind.find([(JsonLd.TYPE_KEY): ['TransformedLanguageForm']]).collect(),
+                scripts: elasticFind.find([(JsonLd.TYPE_KEY): ['Script']]).collectEntries{ [(it[JsonLd.ID_KEY]) : it] }
         )
     }
 

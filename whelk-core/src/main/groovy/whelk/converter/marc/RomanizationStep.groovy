@@ -17,6 +17,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
         LanguageLinker languageLinker
         List<Map> languages
         List<Map> transformedLanguageForms
+        Map scripts
     }
     
     MarcFrameConverter converter
@@ -28,22 +29,22 @@ class RomanizationStep extends MarcFramePostProcStepBase {
     Map byLangToBase
     Map langToTLang
 
-    // TODO: these should be ISO 15924 -> MARC code
     // TODO: MARC standard allows ISO 15924 in $6 but Libris practice doesn't
-    Map scriptToCode =
+    private static final Map MARC_SCRIPT_CODES =
             [
-                    'https://id.kb.se/i18n/script/Arab': '/(3/r',
-                    'https://id.kb.se/i18n/script/Cyrl': '/(N',
-                    'https://id.kb.se/i18n/script/Cyrs': '/(N',
-                    'https://id.kb.se/i18n/script/Grek': '/(S',
-                    'https://id.kb.se/i18n/script/Hang': '/$1',
-                    'https://id.kb.se/i18n/script/Hani': '/$1',
-                    'https://id.kb.se/i18n/script/Hans': '/$1',
-                    'https://id.kb.se/i18n/script/Hant': '/$1',
-                    'https://id.kb.se/i18n/script/Hebr': '/(2/r'
+                    'Arab': '/(3/r',
+                    'Cyrl': '/(N',
+                    'Cyrs': '/(N',
+                    'Grek': '/(S',
+                    'Hang': '/$1',
+                    'Hani': '/$1',
+                    'Hans': '/$1',
+                    'Hant': '/$1',
+                    'Hebr': '/(2/r'
             ]
-
+    
     String OG_MARK = '**OG**'
+    
     String HAS_BIB880 = 'marc:hasBib880'
     String BIB880 = 'marc:bib880'
     String PART_LIST = 'marc:partList'
@@ -168,8 +169,8 @@ class RomanizationStep extends MarcFramePostProcStepBase {
                         path: path.collect().dropRight(1)
                 )
                 
-                //def ref = "$fieldNumber-$fieldrefIdx${scriptToCode[tLangCodes[tLang].fromLangScript] ?: ''}" as String
-                def scriptCode = scriptToCode[tLangCodes[tLang].fromLangScript]
+                def scriptCode = marcScript(tLang)
+                
                 def bib880 =
                         [
                                 (TYPE)          : 'marc:Bib880',
@@ -193,6 +194,11 @@ class RomanizationStep extends MarcFramePostProcStepBase {
         }
 
         byLangPaths.each { putRomanizedLiteralInNonByLang(thing, it as List) }
+    }
+    
+    private String marcScript(String tLang) {
+        def script = languageResources.scripts[tLangCodes[tLang].fromLangScript]
+        return MARC_SCRIPT_CODES[script?.code ?: '']
     }
     
     @MapConstructor
