@@ -16,7 +16,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
     static class LanguageResources {
         LanguageLinker languageLinker
         List<Map> languages
-        List<Map> transformedLanguageForms
+        Map transformedLanguageForms
         Map scripts
     }
     
@@ -29,8 +29,10 @@ class RomanizationStep extends MarcFramePostProcStepBase {
     Map byLangToBase
     Map langToTLang
 
+    private static final String TARGET_SCRIPT = 'Latn'
+    
     // TODO: MARC standard allows ISO 15924 in $6 but Libris practice doesn't
-    private static final Map MARC_SCRIPT_CODES =
+    private static final Map MARC_SCRIPT_CODES = 
             [
                     'Arab': '/(3/r',
                     'Cyrl': '/(N',
@@ -363,11 +365,12 @@ class RomanizationStep extends MarcFramePostProcStepBase {
                 .findAll { it.langTag }.collectEntries { [it[ID], it.langTag] }
     }
 
-    static Map<String, Map> getTLangCodes(List<Map> transformedLanguageForms) {
+    static Map<String, Map> getTLangCodes(Map<String, Map> transformedLanguageForms) {
+        String matchTag = "-${TARGET_SCRIPT}-t-"
         return transformedLanguageForms
-                .findAll{ it.inLangScript[ID] == 'https://id.kb.se/i18n/script/Latn' } // TODO: hardcoded script
+                .values()
+                .findAll{ ((String) it.langTag)?.contains(matchTag) }
                 .collectEntries {
-                    def code = it[ID].split('/').last()
                     def data = [:]
                     if (it.inLanguage) {
                         data.inLanguage = it.inLanguage[ID]
@@ -375,7 +378,7 @@ class RomanizationStep extends MarcFramePostProcStepBase {
                     if (it.fromLangScript) {
                         data.fromLangScript = it.fromLangScript[ID]
                     }
-                    [code, data]
+                    [it.langTag, data]
                 }
     }
 }

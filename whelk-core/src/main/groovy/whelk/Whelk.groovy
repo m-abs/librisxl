@@ -222,11 +222,16 @@ class Whelk {
                 ] + Normalizers.heuristicLinkers(this, languageLinker.getTypes())
         )
         
+        def idsToThings = { String type -> 
+            bulkLoad(elasticFind.findIds([(JsonLd.TYPE_KEY): [type]]).collect())
+            .collect { _, doc -> (doc.data[JsonLd.GRAPH_KEY] as List)[1] }
+            .collectEntries { [it[JsonLd.ID_KEY], it] }
+        }
         languageResources = new RomanizationStep.LanguageResources(
                 languageLinker: languageLinker,
                 languages: elasticFind.find([(JsonLd.TYPE_KEY): ['Language']]).collect(),
-                transformedLanguageForms: elasticFind.find([(JsonLd.TYPE_KEY): ['TransformedLanguageForm']]).collect(),
-                scripts: elasticFind.find([(JsonLd.TYPE_KEY): ['Script']]).collectEntries{ [(it[JsonLd.ID_KEY]) : it] }
+                transformedLanguageForms: idsToThings('TransformedLanguageForm'),
+                scripts: idsToThings('Script')
         )
     }
 
