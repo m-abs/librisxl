@@ -83,6 +83,36 @@ class WorkToolJob {
         println(Html.END)
     }
 
+    void showWorksWithWorkTitles() {
+        def filter = {
+            def source = it[0].getWork().get('hasTitle')[0]['source']
+            return !source || source == 'expressionOf' // not necessarily 'expressionOf', just something saying that the title originally came from expressionOf
+        }
+
+        println(Html.START)
+        run({ cluster ->
+            return {
+                try {
+                    def merged = mergedWorks(titleClusters(cluster)).findAll { it.derivedFrom.size() > 1 }
+                            .collect { [new Doc(whelk, it.doc)] + it.derivedFrom }
+                            .findAll(filter)
+                            .grep()
+                    if (merged) {
+                        println(merged
+                                .collect { Html.clusterTable(it) }
+                                .join('') + Html.HORIZONTAL_RULE
+                        )
+                    }
+                }
+                catch (Exception e) {
+                    System.err.println(e.getMessage())
+                    e.printStackTrace(System.err)
+                }
+            }
+        })
+        println(Html.END)
+    }
+
     void showWorks() {
         println(Html.START)
         run({ cluster ->
@@ -332,20 +362,34 @@ class WorkToolJob {
         })
     }
 
+
     void filterClusters(Closure<Collection<Doc>> predicate) {
+        def s = statistics.printOnShutdown(0, System.err)
         run({ cluster ->
+            def c = loadDocs(cluster).findAll(predicate)
             return {
-                if (predicate(loadDocs(cluster))) {
+                if (c.size() > 1) {
                     println(cluster.join('\t'))
+                } else {
+                    s.increment('stats', 'clusters filtered out')
                 }
             }
         })
     }
 
     void filterDocs(Closure<Doc> predicate) {
+        def s = statistics.printOnShutdown(0, System.err)
         run({ cluster ->
             return {
+                def numDocsInCluster = cluster.size()
                 def c = loadDocs(cluster).findAll(predicate)
+                def diff = numDocsInCluster - c.size()
+                if (diff > 0) {
+                    (0..<diff).each {
+                        s.increment('stats', 'docs filtered out')
+                    }
+                    s.increment('stats', 'clusters affected')
+                }
                 if (c.size() > 0) {
                     println(c.collect { it.doc.shortId }.join('\t'))
                 }

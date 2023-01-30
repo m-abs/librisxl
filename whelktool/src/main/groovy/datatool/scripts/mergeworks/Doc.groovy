@@ -31,14 +31,14 @@ class Doc {
     Whelk whelk
     Document doc
     Map work
-    
+
     List<String> titles
 
     //FIXME
     Document ogDoc
 
     DisplayDoc display
-    
+
     Doc(Whelk whelk, Document doc) {
         this.whelk = whelk
         this.doc = doc
@@ -52,7 +52,7 @@ class Doc {
 
         return work
     }
-    
+
     DisplayDoc getView() {
         if (!display) {
             display = new DisplayDoc(this)
@@ -101,7 +101,7 @@ class Doc {
     boolean hasGenericTitle() {
         Util.hasGenericTitle(getMainEntity()['hasTitle'])
     }
-    
+
     boolean isMonograph() {
         getMainEntity()['issuanceType'] == 'Monograph'
     }
@@ -129,7 +129,7 @@ class Doc {
         }
         pages ? pages.max() : -1
     }
-    
+
     boolean isFiction() {
         isMarcFiction() || isSaogfFiction() || isSabFiction()
     }
@@ -179,14 +179,21 @@ class Doc {
         isSabDrama() || isGfDrama()
     }
 
-    boolean hasRole(String relatorIri) {
+    boolean looksLikeAdaption() {
+        hasRole([Util.Relator.ADAPTER, Util.Relator.EDITOR, Util.Relator.ABRIDGER].iri)
+                || hasDistinguishingEdition()
+                || getMainEntity()['responsibilityStatement'] =~ /[Bb]earb/
+                || asList(getWork()['intendedAudience']).contains(['@id', 'https://id.kb.se/marc/Juvenile'])
+    }
+
+    boolean hasRole(List<String> relatorIris) {
         asList(getWork()['contribution']).any {
-            asList(it['role']).contains(['@id': relatorIri])
+            asList(it['role']).intersect(relatorIris.collect { ['@id': it] })
         }
     }
 
     boolean hasTranslator() {
-        hasRole('https://id.kb.se/relator/translator')
+        hasRole(['https://id.kb.se/relator/translator'])
     }
 
     boolean hasDistinguishingEdition() {

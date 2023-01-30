@@ -1,6 +1,7 @@
 package datatool
 
 import datatool.scripts.mergeworks.Doc
+import datatool.scripts.mergeworks.Util
 import groovy.cli.commons.CliBuilder
 import datatool.scripts.mergeworks.WorkToolJob
 
@@ -42,7 +43,12 @@ class WorkTool {
         cli.qm(longOpt: 'qualityMonographs', 'Filter: "qualityMonographs"')
         cli.tc(longOpt: 'title-clusters', 'Filter: output title clusters')
         cli.r(longOpt: 'revert', 'undo merge and extraction of matching works')
-        cli.cr(longOpt: 'contribution-role', args: 1, argName: 'relator iri', 'Filter: output clusters where given role exists in at least one contribution')
+        cli.cr(longOpt: 'contribution-role', 'Filter: output clusters where given role exists in at least one contribution')
+        cli.wt(longOpt: 'only-work-titles', 'Filter: output clusters where at least one work has title')
+        cli.st(longOpt: 'subtitles', 'Filter: output clusters with at least one title with subtitle')
+        cli.tr3(longOpt: 'anonymousTranslation3', 'Filter: output clusters containing translations without translator')
+        cli.ad(longOpt: 'adaptions', 'Filter: output clusters with potential adaptions')
+        cli.ws(longOpt: 'work summary', 'Filter: output clusters with summary on work')
 
         def options = cli.parse(args)
         if (options.h) {
@@ -87,7 +93,17 @@ class WorkTool {
         } else if (options.r) {
             m.revert()
         } else if (options.cr) {
-            m.filterClusters(  { c -> c.any { Doc d -> d.hasRole(options.cr) } } )
+            m.filterClusters({ c -> c.any { Doc d -> d.hasRole(options.arguments().drop(1)) } })
+        } else if (options.st) {
+            m.filterClusters({ c -> c.any { Doc d -> d.getMainEntity()['hasTitle'].any { it['subtitle'] || it['titleRemainder'] } } })
+        } else if (options.tr3) {
+            m.filterClusters({ c -> c.any { Doc d -> d.isTranslationWithoutTranslator() } })
+        } else if (options.ad) {
+            m.filterClusters({ c -> c.any { Doc d -> d.looksLikeAdaption() } })
+        } else if (options.ws) {
+            m.filterClusters { c -> c.any { Doc d -> d.getWork()['summary'] } }
+        } else if (options.wt) {
+            m.showWorksWithWorkTitles()
         } else {
             cli.usage()
             System.exit 1
